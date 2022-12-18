@@ -169,20 +169,31 @@ def calculate_brain_scores_cv(
             if region_based:
                 logger.info(f"{model}: Processing subj. {i + 1}/{len(dataset['train'])}")
 
-                brain_rois = {k: torch.tensor(v) for k, v in subj.items() if k not in [sentence_key, "all"]}
+                # Only use "vision" rather than all the vision sub-networks
+                brain_rois = {
+                    k: torch.tensor(v) for k, v in subj.items() if k not in
+                    [sentence_key, "all", "vision_object", "vision_face", "vision_scene", "vision_body"]
+                }
+
                 roi_results = {}
                 for roi_name, roi_features in brain_rois.items():
                     # Average across cross-validated results
                     brain_score = np.mean(
                         cross_val_score(
                             regression_model,
-                            sents_encoded.to("cpu"),
-                            roi_features.to("cpu"),
+                            sents_encoded.to("cpu").numpy(),
+                            roi_features.to("cpu").numpy(),
                             cv=cv,
                             scoring=scoring_func or scoring,
                         )
                     )
                     roi_results[roi_name] = [brain_score]
+
+                # Average results from language lh and language rh
+                roi_results["language"] = np.mean([roi_results["language_lh"], roi_results["language_rh"]])
+                roi_results.pop("language_lh")
+                roi_results.pop("language_rh")
+
                 subj_results.append(pd.DataFrame(roi_results))
 
             else:

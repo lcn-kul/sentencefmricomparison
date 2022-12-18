@@ -49,6 +49,7 @@ def get_sim_vector(
     default=SENT_EMBED_MODEL_LIST_EN,
 )
 @click.option("--pairwise-metric", type=str, default="cosine")
+@click.option("--pairwise-metric", type=str, default="cosine")
 @click.option("--correlation-metric", type=click.Choice(CORRELATION_MEASURES.keys()), default="spearman")
 @click.option("--n-resamples", type=int, default=10000)
 @click.option("--num-sentences", type=int, default=-1)
@@ -140,20 +141,28 @@ def perform_simple_rsa(
         )
         sent_rdms[sent_model_name] = sentences_dissim_mat
 
+    # Get a vectorized representation of the similarity matrices
+    sent_rdm_vectors = [get_sim_vector(sent_rdms[sent_model_name]) for sent_model_name in sent_model_names]
+
     # Generate a result matrix for all ROIs and all sent embed models
     result_df = pd.DataFrame(index=sent_model_names)  # columns=sorted(ROI_INDICES.keys())
 
+    # Don't include the vision subnetworks
+    rois = {
+        k for k in ROI_INDICES.keys()
+        if k not in ["vision_object", "vision_face", "vision_scene", "vision_body"]
+    }
+    # Process the language networks differently (average of left and right)
+    language_specific_vectors = []
+
     # 3. Calculate the correlation between each sentence embedding model and each ROI
     # (all subjects -> average corr matrix)
-    for roi in sorted(ROI_INDICES.keys()):
+    for roi in sorted(rois):
         logger.info(f"Processing ROI: {roi}")
 
         roi_specific_sim_mat = [all_subject_data[subj][roi] for subj in all_subject_ids]
         # Average correlation matrices across all subjects for a given ROI
         av_roi_specific_sim_mat = np.mean(roi_specific_sim_mat, axis=0)
-
-        # Get a vectorized representation of the similarity matrices
-        sent_rdm_vectors = [get_sim_vector(sent_rdms[sent_model_name]) for sent_model_name in sent_model_names]
         av_roi_specific_sim_vector = get_sim_vector(av_roi_specific_sim_mat)
 
         # Spearman correlation to the average ROI correlation matrix for each sent model
@@ -164,20 +173,41 @@ def perform_simple_rsa(
             )[0]
             for sent_rdm_vector in sent_rdm_vectors
         ]
-        # p-value for the Spearman correlation based on a permutation test
-        result_df.loc[:, roi + " p-value"] = [
-            permutation_test(
-                sent_rdm_vector.reshape(1, -1),
-                permutation_type="pairings",
-                statistic=lambda data: CORRELATION_MEASURES[correlation_metric](
-                    data,
-                    av_roi_specific_sim_vector,
-                )[0],
-                n_resamples=n_resamples,
-                alternative="greater",
-            ).pvalue
-            for sent_rdm_vector in sent_rdm_vectors
-        ]
+
+        if "language" not in roi:
+            # p-value for the Spearman correlation based on a permutation test
+            result_df.loc[:, roi + " p-value"] = [
+                permutation_test(
+                    sent_rdm_vector.reshape(1, -1),
+                    permutation_type="pairings",
+                    statistic=lambda data: CORRELATION_MEASURES[correlation_metric](
+                        data,
+                        av_roi_specific_sim_vector,
+                    )[0],
+                    n_resamples=n_resamples,
+                    alternative="greater",
+                ).pvalue
+                for sent_rdm_vector in sent_rdm_vectors
+            ]
+        else:
+            language_specific_vectors.append(av_roi_specific_sim_vector)
+
+    # Average language lh and rh, but calculate the p-value differently
+    result_df["language"] = result_df[["language_rh", "language_lh"]].mean(axis=1)
+    result_df.loc[:, "language" + " p-value"] = [
+        permutation_test(
+            sent_rdm_vector.reshape(1, -1),
+            permutation_type="pairings",
+            statistic=lambda data: np.mean([
+                CORRELATION_MEASURES[correlation_metric](data, language_specific_vectors[0])[0],
+                CORRELATION_MEASURES[correlation_metric](data, language_specific_vectors[1])[0],
+            ]),
+            n_resamples=n_resamples,
+            alternative="greater",
+        ).pvalue
+        for sent_rdm_vector in sent_rdm_vectors
+    ]
+    result_df.drop(columns=["language_rh", "language_lh"], inplace=True)
 
     # Add an average column to average the correlations from all ROIs
     result_df["mean"] = result_df[[i for i in result_df.columns if "p-value" not in i]].mean(axis=1)
