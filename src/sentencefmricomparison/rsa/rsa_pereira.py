@@ -49,7 +49,6 @@ def get_sim_vector(
     default=SENT_EMBED_MODEL_LIST_EN,
 )
 @click.option("--pairwise-metric", type=str, default="cosine")
-@click.option("--pairwise-metric", type=str, default="cosine")
 @click.option("--correlation-metric", type=click.Choice(CORRELATION_MEASURES.keys()), default="spearman")
 @click.option("--n-resamples", type=int, default=10000)
 @click.option("--num-sentences", type=int, default=-1)
