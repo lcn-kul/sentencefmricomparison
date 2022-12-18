@@ -7,12 +7,12 @@ from glob import glob
 
 import click
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
-from scipy.stats import linregress
 
 from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR, SENTEVAL_OUTPUT_DIR
-from sentencefmricomparison.models.sentence_embedding_base import SentenceEmbeddingModel
+from sentencefmricomparison.utils import CORRELATION_MEASURES
 
 # Initialize the logger
 logger = logging.getLogger(__name__)
@@ -74,30 +74,15 @@ def plot_corr_rsa_neural_enc(
     neural_enc = neural_enc.rename(columns={"variable": "roi", "value": "neural_enc"})
     concat_df = rsa_corr.merge(neural_enc)
 
-    # Get the parameters for a regression line
-    slope, intercept, r_value, p_value, std_err = linregress(concat_df["neural_enc"], concat_df["rsa_corr"])
-
-    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (16, 8)})
-    fig, ax = plt.subplots()
-    sns.regplot(concat_df["neural_enc"], concat_df["rsa_corr"], ax=ax, scatter=False, color=color)
-    sns.scatterplot(
-        data=concat_df,
-        x="neural_enc",
-        y="rsa_corr",
-        hue="roi",
-        palette="Set2",
-        ax=ax,
+    fig = plot_scatter_regplot(
+        data_df=concat_df,
+        color=color,
+        output_path=os.path.join(output_dir, "corr_rsa_neural_enc.png"),
+        x_axis="neural_enc",
+        x_label="pairwise accuracy (neural encoding)",
+        y_axis="rsa_corr",
+        y_label="spearman correlation (RSA)",
     )
-    ax.set_xlabel("Pairwise accuracy (neural encoding)")
-    ax.set_ylabel("Spearman correlation (RSA)")
-    ax.set_title(
-        f"Correlation between RSA and neural encoding: y= {str(round(slope, 2))}x + {str(round(intercept, 2))}\n"
-        + f"with resulting p={round(p_value, 5)}",
-    )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left", borderaxespad=0)
-    plt.tight_layout()
-    save_fig = fig.get_figure()
-    save_fig.savefig(os.path.join(output_dir, "corr_rsa_neural_enc.png"))
 
     return fig
 
@@ -146,117 +131,24 @@ def plot_corr_rsa_sent_eval(
         )[0]
         rsa_corr_df.loc[model_name, "sent_eval_avg"] = pd.read_csv(file_path)["Avg."][0]
 
-    # Melt all different ROI scores
+    # 2. Melt all different ROI scores
     rsa_corr_df = rsa_corr_df.melt(
         id_vars=["sent_eval_avg"],
-        value_vars=[col for col in rsa_corr_df.columns if "sent_eval_avg" not in col or "mean" not in col],
+        value_vars=[col for col in rsa_corr_df.columns if "sent_eval_avg" not in col],
     )
+    rsa_corr_df = rsa_corr_df[rsa_corr_df["variable"] != "mean"]
     rsa_corr_df = rsa_corr_df.rename(columns={"variable": "roi", "value": "rsa_corr"})
-    rsa_corr_mean_df = rsa_corr_df[rsa_corr_df["roi"] == "mean"]
-
-    # 2. Apply linear regression
-    slope, intercept, r_value, p_value, std_err = linregress(
-        rsa_corr_mean_df["sent_eval_avg"],
-        rsa_corr_mean_df["rsa_corr"],
-    )
 
     # 3. Plot it
-    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (16, 8)})
-    fig, ax = plt.subplots()
-    sns.regplot(rsa_corr_mean_df["sent_eval_avg"], rsa_corr_mean_df["rsa_corr"], ax=ax, scatter=False, color=color)
-    sns.scatterplot(
-        data=rsa_corr_df,
-        x="sent_eval_avg",
-        y="rsa_corr",
-        hue="roi",
-        palette="Set2",
-        ax=ax,
+    fig = plot_scatter_regplot(
+        data_df=rsa_corr_df,
+        color=color,
+        output_path=os.path.join(output_dir, "corr_rsa_sent_eval.png"),
+        x_axis="sent_eval_avg",
+        x_label=f"SentEval {sent_eval_mode} scores",
+        y_axis="rsa_corr",
+        y_label="spearman correlation (RSA)",
     )
-    ax.set_xlabel(f"SentEval {sent_eval_mode} scores")
-    ax.set_ylabel("Spearman correlation (RSA)")
-    ax.set_title(
-        f"Correlation between RSA and SentEval scores: y= {str(round(slope, 5))}x + {str(round(intercept, 5))}\n"
-        + f"with resulting p={round(p_value, 5)}",
-    )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left", borderaxespad=0)
-    plt.tight_layout()
-    save_fig = fig.get_figure()
-    save_fig.savefig(os.path.join(output_dir, "corr_rsa_sent_eval.png"))
-
-    return fig
-
-
-@click.command()
-@click.option(
-    "--rsa-input-file",
-    type=str,
-    default=os.path.join(PEREIRA_OUTPUT_DIR, "rsa_correlations_spearman_cosine_paragraphs.csv"),
-)
-@click.option("--color", type=str, default="#DBAD6A")
-@click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
-def plot_corr_rsa_model_size(
-    rsa_input_file: str = os.path.join(PEREIRA_OUTPUT_DIR, "rsa_correlations_spearman_cosine_paragraphs.csv"),
-    color: str = "#DBAD6A",
-    output_dir: str = PEREIRA_OUTPUT_DIR,
-):
-    """Create a correlation plot between RSA correlations and model size
-
-    :param rsa_input_file: Input file for the RSA correlations between sentence embeddings and fMRI features
-    :type rsa_input_file: str
-    :param color: Color for the lineplot
-    :type color: str
-    :param output_dir: Output directory to save the plot to
-    :type output_dir: str
-    :return: Figure with lineplots of correlations between RSA and model sizes
-    :rtype: plt.Figure
-    """
-    # 1. Get the model size for each model
-    rsa_corr_df = pd.read_csv(rsa_input_file, index_col=0, usecols=lambda x: "p-value" not in x)
-    for model_name in rsa_corr_df.index:
-        model = SentenceEmbeddingModel(model_name).model
-        sum_with_grad = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        sum_wo_grad = sum(p.numel() for p in model.parameters())
-        model_size = sum_with_grad if sum_with_grad > 0 else sum_wo_grad
-        rsa_corr_df.loc[model_name, "model_size"] = model_size
-
-    rsa_corr_df["model_size"] = rsa_corr_df["model_size"] / 1e7
-
-    # Melt all different ROI scores
-    rsa_corr_df = rsa_corr_df.melt(
-        id_vars=["model_size"],
-        value_vars=[col for col in rsa_corr_df.columns if "model_size" not in col or "mean" not in col],
-    )
-    rsa_corr_df = rsa_corr_df.rename(columns={"variable": "roi", "value": "rsa_corr"})
-    rsa_corr_mean_df = rsa_corr_df[rsa_corr_df["roi"] == "mean"]
-
-    # 2. Apply linear regression
-    slope, intercept, r_value, p_value, std_err = linregress(
-        rsa_corr_mean_df["model_size"],
-        rsa_corr_mean_df["rsa_corr"],
-    )
-
-    # 3. Plot it
-    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (16, 8)})
-    fig, ax = plt.subplots()
-    sns.regplot(rsa_corr_mean_df["model_size"], rsa_corr_mean_df["rsa_corr"], ax=ax, scatter=False, color=color)
-    sns.scatterplot(
-        data=rsa_corr_df,
-        x="model_size",
-        y="rsa_corr",
-        hue="roi",
-        palette="Set2",
-        ax=ax,
-    )
-    ax.set_xlabel(f"Model size (*1e7)")
-    ax.set_ylabel("Spearman correlation (RSA)")
-    ax.set_title(
-        f"Correlation between RSA and model size: y= {str(round(slope, 5))}x + {str(round(intercept, 5))}\n"
-        + f"with resulting p={round(p_value, 5)}",
-    )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left", borderaxespad=0)
-    plt.tight_layout()
-    save_fig = fig.get_figure()
-    save_fig.savefig(os.path.join(output_dir, "corr_rsa_model_size.png"))
 
     return fig
 
@@ -270,17 +162,31 @@ def plot_scatter_regplot(
     y_axis: str = "rsa_corr",
     y_label: str = "Spearman correlation (RSA)",
 ) -> plt.Figure:
-    # TODO documentation
-    # TODO use this method in the three functions above
+    """Plotting helper function for line/regression plots between various variables from various analyses.
 
-    # Apply linear regression
-    slope, intercept, r_value, p_value, std_err = linregress(
-        data_df[x_axis],
-        data_df[y_axis],
-    )
+    :param data_df: Dataframe with the data for the regression plot
+    :type data_df: pd.DataFrame
+    :param color: Color for the lineplot
+    :type color: str
+    :param output_path: Output path to save the plot to
+    :type output_path: str
+    :param x_axis: Column name of the dataframe for the data to use for the x-axis
+    :type x_axis: str
+    :param x_label: x-label of the plot
+    :type x_label: str
+    :param y_axis: Column name of the dataframe for the data to use for the y-axis
+    :type y_axis: str
+    :param y_label: y-label of the plot
+    :type y_label: str
+    :return: Figure object of the plot
+    :rtype: plt.Figure
+    """
+
+    # Calcualte the correlation
+    corr, p_value = CORRELATION_MEASURES['pearson'](data_df[x_axis], data_df[y_axis])
 
     # Plot it
-    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (16, 8)})
+    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (12, 8)},  font_scale=2)
     fig, ax = plt.subplots()
     sns.regplot(data_df[x_axis], data_df[y_axis], ax=ax, scatter=False, color=color)
     sns.scatterplot(
@@ -290,17 +196,17 @@ def plot_scatter_regplot(
         hue="roi",
         palette="Set2",
         ax=ax,
+        s=75,
     )
-    ax.set_xlabel(f"Model size (*1e7)")
-    ax.set_ylabel("Spearman correlation (RSA)")
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
     ax.set_title(
-        f"Correlation between {x_label} and {y_label}:\n y= {str(round(slope, 5))}x + {str(round(intercept, 5))}\n"
-        + f"with resulting p={round(p_value, 5)}",
+        # between {x_label} and {y_label}
+        f"Correlation: r={np.round(corr, 2)} (p-value: {np.round(p_value, 5)})",
     )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left", borderaxespad=0)
+    plt.legend(loc="lower right")
     plt.tight_layout()
-    save_fig = fig.get_figure()
-    save_fig.savefig(output_path)
+    fig.savefig(output_path)
 
     return fig
 
@@ -316,5 +222,4 @@ def cli() -> None:
 if __name__ == "__main__":
     cli.add_command(plot_corr_rsa_neural_enc)
     cli.add_command(plot_corr_rsa_sent_eval)
-    cli.add_command(plot_corr_rsa_model_size)
     cli()
