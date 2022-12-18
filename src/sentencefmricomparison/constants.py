@@ -50,6 +50,14 @@ PATH_TO_SENTEVAL = os.getenv("PATH_TO_SENTEVAL") or './SentEval'
 PATH_TO_SENTEVAL_DATA = os.path.join(PATH_TO_SENTEVAL, "data")
 SENTEVAL_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "senteval")
 
+# Skip-thoughts model dir for the model that can be downloaded using
+# wget "http://download.tensorflow.org/models/skip_thoughts_uni_2017_02_02.tar.gz"
+# tar -xvf skip_thoughts_uni_2017_02_02.tar.gz
+SKIPTHOUGHTS_MODEL_DIR = os.path.join(MODELS_DIR, "skipthoughts")
+# Quick-thoughts model dir for the model that can be trained using https://github.com/RRisto/quickthoughts
+# (the resulting output files config.py and checkpoint_latest.pth from train_dev.py)
+QUICKTHOUGHTS_MODEL_DIR = os.path.join(MODELS_DIR, "quickthoughts")
+
 # Create directories
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(RAW_DIR, exist_ok=True)
@@ -61,6 +69,8 @@ os.makedirs(PEREIRA_OUTPUT_DIR, exist_ok=True)
 os.makedirs(SENTEVAL_OUTPUT_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
+os.makedirs(SKIPTHOUGHTS_MODEL_DIR, exist_ok=True)
+os.makedirs(QUICKTHOUGHTS_MODEL_DIR, exist_ok=True)
 os.makedirs(NOTEBOOKS_DIR, exist_ok=True)
 
 # Sentence embedding default
@@ -74,10 +84,9 @@ SENT_EMBED_MODEL_LIST_EN = [
     "roberta-large",  # RoBERTa-large averaging
     "gpt2",  # GPT-2 averaging
     # pragmatic coherence
-    "helena-balabin/qt-roberta-large",  # QT based on RoBERTa-large
+    "skipthoughts",
+    "quickthoughts",
     "vgaraujov/PredBERT-T",  # Alteratives are: vgaraujov/PredBERT-T, vgaraujov/PredALBERT-T, vgaraujov/PredALBERT-R
-    # TODO skipthoughts?
-    # TODO switch quickthoughts to the original model
     # semantic comparison
     "sentence-transformers/roberta-large-nli-stsb-mean-tokens",  # S-BERT based on RoBERTa-large
     "princeton-nlp/sup-simcse-roberta-large",  # SUPERVISED SimCSE based on RoBERTa-large

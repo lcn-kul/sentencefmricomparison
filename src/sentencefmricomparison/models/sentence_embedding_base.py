@@ -1,5 +1,6 @@
 """Base class for sentence embedding paradigms/models that are used."""
 
+import os
 from typing import Callable, List, Optional, Union
 
 import pandas as pd
@@ -7,7 +8,13 @@ import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModel, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
-from sentencefmricomparison.constants import HF_TOKEN_PRED_BERT, INFERENCE_BATCH_SIZE, SENTENCE_EMBED_DEFAULT_EN
+from sentencefmricomparison.constants import (
+    HF_TOKEN_PRED_BERT,
+    INFERENCE_BATCH_SIZE,
+    QUICKTHOUGHTS_MODEL_DIR,
+    SENTENCE_EMBED_DEFAULT_EN,
+    SKIPTHOUGHTS_MODEL_DIR,
+)
 from sentencefmricomparison.utils import PAIRWISE_DISTANCES, POOLING_STRATEGIES
 
 
@@ -15,6 +22,7 @@ class SentenceEmbeddingModel:
     """Base class for all sentence embedding models."""
 
     model: Union[PreTrainedModel, SentenceTransformer]
+    model_name: str
     tokenizer: Optional[PreTrainedTokenizer]
     distance_measure: Callable = PAIRWISE_DISTANCES["cosine"]
     inference_batch_size: int = 4
@@ -38,23 +46,44 @@ class SentenceEmbeddingModel:
         :param inference_batch_size: Batch size used during inference (obtaining sentence embeddings)
         :type inference_batch_size: int
         """
+        # Specify the model type
+        self.model_name = model_name
+
         # Some models don't offer a specific tokenizer, use the one of the SENTENCE_EMBED_DEFAULT in that case
-        if "sentence-transformers" in model_name:
+        if "sentence-transformers" in self.model_name:
             # Some sentence transformers don't have a hf transformers tokenizer and model, use the sentence-transformers
             # package with its encode function in that case instead
             self.tokenizer = None
-            self.model = SentenceTransformer(model_name)
+            self.model = SentenceTransformer(self.model_name)
         # Use the authentification token for the Pred-BERT based models
-        elif "vgaraujov" in model_name:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN_PRED_BERT)
-            self.model = AutoModel.from_pretrained(model_name, use_auth_token=HF_TOKEN_PRED_BERT)
+        elif "vgaraujov" in self.model_name:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_auth_token=HF_TOKEN_PRED_BERT)
+            self.model = AutoModel.from_pretrained(self.model_name, use_auth_token=HF_TOKEN_PRED_BERT)
+        # Skip-Thoughts setup
+        elif self.model_name == "skipthoughts":
+            from skip_thoughts import configuration
+            from skip_thoughts.encoder_manager import EncoderManager
+
+            self.tokenizer = None
+            self.model = EncoderManager()
+            self.model.load_model(
+                configuration.model_config(),
+                vocabulary_file=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "vocab.txt"),
+                embedding_matrix_file=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "embeddings.npy"),
+                checkpoint_path=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "model.ckpt-501424"),
+            )
+        elif self.model_name == "quickthoughts":
+            from quickthoughts.learner import QTLearner
+
+            self.tokenizer = None
+            self.model = QTLearner.create_from_checkpoint(QUICKTHOUGHTS_MODEL_DIR)
         else:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModel.from_pretrained(model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModel.from_pretrained(self.model_name)
 
             # Add a pseudo padding token to GPT2 (it's only needed to ensure a consistent output shape and it's
             # disregarded when averaging token embeddings)
-            if model_name == "gpt2":
+            if self.model_name == "gpt2":
                 self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
         self.pooling_stategy = pooling_strategy
@@ -94,11 +123,22 @@ class SentenceEmbeddingModel:
                         self.model(**inputs), inputs["attention_mask"]
                     ).to('cpu')
             else:
-                # Use the SentenceTransformer syntax if there is no tokenizer
+                # Use the SentenceTransformer/Skip/QuickThoughts syntax if there is no tokenizer
                 with torch.no_grad():
-                    output = self.pooling_stategy(
-                        self.model.encode(batch, output_value="token_embeddings", convert_to_numpy=False)
-                    ).to('cpu')
+                    if "sentence-transformers" in self.model_name:
+                        output = self.pooling_stategy(
+                            self.model.encode(
+                                batch,
+                                output_value="token_embeddings",
+                                convert_to_numpy=False,
+                            )
+                        ).to('cpu')
+                    # SkipThoughts
+                    elif self.model_name == "skipthoughts":
+                        output = torch.from_numpy(self.model.encode(batch))
+                    # QuickThoughts
+                    else:
+                        output = torch.from_numpy(self.model.predict(batch))
 
             encoded_sentences += [sent_embed for sent_embed in output]
 
