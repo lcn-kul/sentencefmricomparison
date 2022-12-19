@@ -90,7 +90,7 @@ SENT_EMBED_MODEL_LIST_EN = [
     # semantic comparison
     "sentence-transformers/roberta-large-nli-stsb-mean-tokens",  # S-BERT based on RoBERTa-large
     "princeton-nlp/sup-simcse-roberta-large",  # SUPERVISED SimCSE based on RoBERTa-large
-    "sentence-transformers/sentence-t5-base"  # Sentence-T5 based on T5 (fine-tuned on QA + NLI)
+    "sentence-transformers/sentence-t5-base",  # Sentence-T5 based on T5 (fine-tuned on QA + NLI)
     # contrastive learning
     "princeton-nlp/unsup-simcse-roberta-large",  # UNSUPERVISED SimCSE based on RoBERTa-large
     "voidism/diffcse-roberta-base-sts",  # DiffCSE based on RoBERTa-base
