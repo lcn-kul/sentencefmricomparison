@@ -97,6 +97,21 @@ SENT_EMBED_MODEL_LIST_EN = [
     "johngiorgi/declutr-base",  # DeCLUTR based on RoBERTa-base
 ]
 
+SENT_EMBED_MODEL_NAMES_EN = {
+    "sentence-transformers/average_word_embeddings_glove.6B.300d": "GloVe",
+    "roberta-large": "RoBERTa",
+    "gpt2": "GPT2",
+    "skipthoughts": "SkipThoughts",
+    "quickthoughts": "QuickThoughts",
+    "vgaraujov/PredBERT-T": "PredBERT",
+    "sentence-transformers/roberta-large-nli-stsb-mean-tokens": "S-RoBERTa",
+    "princeton-nlp/sup-simcse-roberta-large": "sup-SimCSE",
+    "sentence-transformers/sentence-t5-base": "S-T5",
+    "princeton-nlp/unsup-simcse-roberta-large": "unsup-SimCSE",
+    "voidism/diffcse-roberta-base-sts": "DiffCSE",
+    "johngiorgi/declutr-base": "DeCLUTR",
+}
+
 # Create a custom color palette
 CUSTOM_COLOR_PALETTE = [
     "#FFC9B5",
@@ -108,5 +123,5 @@ CUSTOM_COLOR_PALETTE = [
     "#C44536",
     "#A24B64",
     "#15616D",
-    "#993955"
+    "#993955",
 ]
