@@ -77,9 +77,10 @@ target/
 # And the F-PACK exploration file 
 /notebooks/fpack_exploration.ipynb
 
-# exclude data, logsm, models and scripts from source control by default
+# exclude data, logs, notebooks, models and scripts from source control by default
 /data/
 /logs/
+/notebooks/
 /models/
 /scripts/
 
