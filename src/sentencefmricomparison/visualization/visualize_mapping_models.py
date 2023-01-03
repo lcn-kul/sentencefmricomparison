@@ -9,7 +9,7 @@ import pandas as pd
 import seaborn as sns
 from glob import glob
 
-from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR
+from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR, SENT_EMBED_MODEL_NAMES_EN
 
 
 @click.command()
@@ -51,7 +51,7 @@ def plot_mappings_from_neural_enc(
     fig, ax = plt.subplots()
 
     if strip_plot:
-        sns.stripplot(
+        plot = sns.stripplot(
             data=total_df,
             x="model",
             y="value",
@@ -61,7 +61,7 @@ def plot_mappings_from_neural_enc(
             jitter=False,
         )
     else:
-        sns.boxplot(
+        plot = sns.boxplot(
             data=total_df,
             x="model",
             y="value",
@@ -69,6 +69,11 @@ def plot_mappings_from_neural_enc(
             palette="Set2",
             dodge=True,
         )
+    plot.set_xticklabels(
+        labels=[SENT_EMBED_MODEL_NAMES_EN[i.get_text()] for i in list(plot.get_xticklabels())],
+        rotation=45,
+    )
+    ax.set(xlabel='', ylabel='pairwise accuracy')
 
     # 3. Save the plot
     plt.legend()
