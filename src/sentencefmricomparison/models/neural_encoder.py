@@ -13,12 +13,12 @@ from datasets import load_dataset
 from scipy.spatial.distance import cosine
 from scipy.stats import pearsonr
 from sklearn.base import BaseEstimator
-from sklearn.linear_model import Ridge
 from sklearn.model_selection import cross_val_score
 from tqdm import tqdm
 
 from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR, SENT_EMBED_MODEL_LIST_EN
 from sentencefmricomparison.models.sentence_embedding_base import SentenceEmbeddingModel
+from sentencefmricomparison.utils import NEURAL_ENC_MODELS
 
 # Initialize logger
 logging.basicConfig()
@@ -88,15 +88,16 @@ def pearson_scoring(
 @click.option("--sent-embed-models", type=str, multiple=True, default=SENT_EMBED_MODEL_LIST_EN)
 @click.option("--region-based", type=bool, default=True)
 @click.option("--sentence-key", type=str, default="")
-@click.option("--reg-param", type=float, default=0.1)
+@click.option("--mapping", type=str, default="ridge")
 @click.option("--cv", type=int, default=5)
+@click.option("--scoring", type=str, default="pairwise_accuracy")
 @click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
 def calculate_brain_scores_cv(
     dataset_hf_name: str = "helena-balabin/pereira_fMRI_passages",
     sent_embed_models: List[str] = SENT_EMBED_MODEL_LIST_EN,
     region_based: bool = True,
     sentence_key: str = "",
-    reg_param: float = 0.1,
+    mapping: str = "ridge",
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
     output_dir: str = PEREIRA_OUTPUT_DIR,
@@ -113,9 +114,8 @@ def calculate_brain_scores_cv(
     :type region_based: bool
     :param sentence_key: Optional key for the name of the text data column in the dataset
     :type sentence_key: str
-    :param reg_param: Regularization hyperparameter used for the Ridge regression model that predicts MRI features
-        from sentence embeddings, defaults to 0.1
-    :type reg_param: float
+    :param mapping: What kind of mapping model to use, defaults to "ridge"
+    :type mapping: str
     :param cv: Number of folds used for cross-validation included in the neural encoding procedure
     :type cv: int
     :param scoring: Scoring function used to evaluate the performance of the neural encoding approach, defaults to
@@ -133,7 +133,7 @@ def calculate_brain_scores_cv(
         sentence_key = "paragraphs" if "passages" in dataset_hf_name else "sentences"
 
     # 2. Initialize the regression model
-    regression_model = Ridge(alpha=reg_param)
+    mapping_model = NEURAL_ENC_MODELS[mapping]
 
     # 3. Get the sentences/paragraphs
     sents = dataset["train"][0][sentence_key]
@@ -180,7 +180,7 @@ def calculate_brain_scores_cv(
                     # Average across cross-validated results
                     brain_score = np.mean(
                         cross_val_score(
-                            regression_model,
+                            mapping_model,
                             sents_encoded.to("cpu").numpy(),
                             roi_features.to("cpu").numpy(),
                             cv=cv,
@@ -200,7 +200,7 @@ def calculate_brain_scores_cv(
                 brain_voxels = torch.tensor(subj["all"])
                 brain_score = np.mean(
                     cross_val_score(
-                        regression_model,
+                        mapping_model,
                         sents_encoded.to("cpu"),
                         brain_voxels.to("cpu"),
                         scoring=scoring_func or scoring,
@@ -221,7 +221,7 @@ def calculate_brain_scores_cv(
     results.to_csv(
         os.path.join(
             output_dir,
-            f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}.csv",
+            f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}.csv",
         ),
     )
 

@@ -1,6 +1,7 @@
 """Additional functions used in this repository."""
 
 from dataclasses import make_dataclass
+from itertools import combinations, permutations, product
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -8,13 +9,25 @@ import torch
 from scipy._lib._util import check_random_state
 from scipy.special import comb, factorial
 from scipy.stats import kendalltau, pearsonr, spearmanr
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.neural_network import MLPRegressor
+from sklearn.svm import SVR
 from torchmetrics.functional.pairwise import (
     pairwise_cosine_similarity,
     pairwise_euclidean_distance,
     pairwise_manhattan_distance,
 )
 from transformers.file_utils import ModelOutput
-from itertools import combinations, permutations, product
+
+# Models to try out as a neural encoder
+NEURAL_ENC_MODELS = {
+    "linear": LinearRegression(),
+    "ridge": Ridge(alpha=0.1),
+    "mlp": MLPRegressor(),
+    "svm": SVR(),
+    "rf": RandomForestRegressor(),
+}
 
 
 def mean_pooling(

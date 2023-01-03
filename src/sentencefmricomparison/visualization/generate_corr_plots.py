@@ -49,7 +49,7 @@ def plot_corr_rsa_neural_enc(
     rsa_input_file: str = os.path.join(PEREIRA_OUTPUT_DIR, "rsa_correlations_spearman_cosine_paragraphs.csv"),
     neural_enc_input_file: str = os.path.join(
         PEREIRA_OUTPUT_DIR,
-        "pereira_neural_enc_sentences_pairwise_accuracy.csv",
+        "pereira_neural_enc_sentences_pairwise_accuracy_ridge.csv",
     ),
     per_brain_network: bool = False,
     color: str = "#C44536",
