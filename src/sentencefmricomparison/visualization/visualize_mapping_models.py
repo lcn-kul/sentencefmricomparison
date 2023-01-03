@@ -81,8 +81,7 @@ def plot_mappings_from_neural_enc(
 @click.group()
 def cli() -> None:
     """
-    This script generates a correlation plot between RSA correlations and neural encoding scores for different sentence
-    embedding models.
+    This script generates a box/strip plot for the neural encoding performances of different mapping models.
     """
 
 
