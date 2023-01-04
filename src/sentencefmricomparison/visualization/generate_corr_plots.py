@@ -271,7 +271,6 @@ def plot_scatter_regplot(
 
 @click.command()
 @click.option("--paragraph-input-path", type=str, default=PEREIRA_PERMUTED_SENTENCES_PATH)
-@click.option("--color", type=str, default="#DBAD6A")
 @click.option("--sent-model-names", multiple=True, default=SENT_EMBED_MODEL_LIST_EN)
 @click.option("--output-dir", default=PEREIRA_OUTPUT_DIR)
 def plot_correlogram_sent_models(
@@ -301,11 +300,7 @@ def plot_correlogram_sent_models(
         del model
 
     # 2. Get all pairwise correlations
-    pair_corr_df = pd.DataFrame(
-        data=pairwise_cosine_similarity(torch.stack([torch.tensor(t) for t in sent_model_rdms.values()])).numpy(),
-        index=sent_model_names,
-        columns=sent_model_names,
-    )
+    pair_corr_df = pd.DataFrame.from_dict(sent_model_rdms).corr(method="spearman")
     pair_corr_df = pair_corr_df.rename(columns=SENT_EMBED_MODEL_NAMES_EN, index=SENT_EMBED_MODEL_NAMES_EN)
 
     # 3. Plot them
@@ -321,8 +316,8 @@ def plot_correlogram_sent_models(
         mask=mask,
         square=True,
         cmap=sns.diverging_palette(220, 20, as_cmap=True),
-        # vmin=0.0,
-        # vmax=1.0,
+        vmin=0.0,
+        vmax=1.0,
     )
     heatmap.set_xticklabels(heatmap.get_yticklabels(), rotation=45)
     # Save the plot
