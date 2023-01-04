@@ -112,6 +112,21 @@ SENT_EMBED_MODEL_NAMES_EN = {
     "johngiorgi/declutr-base": "DeCLUTR",
 }
 
+SENT_EMBED_MODEL_PARADIGMS = {
+    "sentence-transformers/average_word_embeddings_glove.6B.300d": "word-averaging",
+    "roberta-large": "word-averaging",
+    "gpt2": "word-averaging",
+    "skipthoughts": "pragmatic-coherence",
+    "quickthoughts": "pragmatic-coherence",
+    "vgaraujov/PredBERT-T": "pragmatic-coherence",
+    "sentence-transformers/roberta-large-nli-stsb-mean-tokens": "semantic-comparison",
+    "princeton-nlp/sup-simcse-roberta-large": "semantic-comparison",
+    "sentence-transformers/sentence-t5-base": "semantic-comparison",
+    "princeton-nlp/unsup-simcse-roberta-large": "contrastive-learning",
+    "voidism/diffcse-roberta-base-sts": "contrastive-learning",
+    "johngiorgi/declutr-base": "contrastive-learning",
+}
+
 # Create a custom color palette
 CUSTOM_COLOR_PALETTE = [
     "#FFC9B5",

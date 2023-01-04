@@ -18,7 +18,7 @@ from sentencefmricomparison.constants import (
     PEREIRA_INPUT_DIR,
     PEREIRA_OUTPUT_DIR,
     PEREIRA_PERMUTED_SENTENCES_PATH,
-    SENT_EMBED_MODEL_LIST_EN,
+    SENT_EMBED_MODEL_LIST_EN, SENT_EMBED_MODEL_PARADIGMS,
 )
 from sentencefmricomparison.data.preprocess_pereira import ROI_INDICES
 from sentencefmricomparison.models.sentence_embedding_base import SentenceEmbeddingModel
@@ -50,7 +50,9 @@ def get_sim_vector(
 )
 @click.option("--pairwise-metric", type=str, default="cosine")
 @click.option("--correlation-metric", type=click.Choice(CORRELATION_MEASURES.keys()), default="spearman")
-@click.option("--n-resamples", type=int, default=10000)
+@click.option("--n-resamples-permutation", type=int, default=10000)
+@click.option("--n-resamples-bootstrapping", type=int, default=1000)
+@click.option("--bootstrapping-ratio", type=float, default=0.9)
 @click.option("--num-sentences", type=int, default=-1)
 @click.option("--passage-wise-processing", type=bool, default=True)
 @click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
@@ -59,7 +61,9 @@ def perform_simple_rsa(
     sent_model_names: List[str] = SENT_EMBED_MODEL_LIST_EN,
     pairwise_metric: str = "cosine",
     correlation_metric: str = "spearman",
-    n_resamples: int = 10000,
+    n_resamples_permutation: int = 10000,
+    n_resamples_bootstrapping: int = 1000,
+    bootstrapping_ratio: float = 0.9,
     num_sentences: str = -1,
     passage_wise_processing: bool = True,
     output_dir: str = PEREIRA_OUTPUT_DIR,
@@ -74,9 +78,14 @@ def perform_simple_rsa(
     :type pairwise_metric: str
     :param correlation_metric: Metric used for calculating the correlation across ROIs and LMs
     :type correlation_metric: str
-    :param n_resamples: Number of permutations for the permutation test that measures statistical significance for the
+    :param n_resamples_permutation: Number of permutations for the permutation test that measures statistical
+    significance for the
         calculated correlations
-    :type n_resamples: int
+    :type n_resamples_permutation: int
+    :param n_resamples_bootstrapping: Number of resamples for bootstrapping the correlation values
+    :type n_resamples_bootstrapping: int
+    :param bootstrapping_ratio: Ratio of samples to use for calculating bootstrapped correlations
+    :type bootstrapping_ratio: float
     :param num_sentences: Number of sentences used in the overall analysis, defaults to -1 (all)
     :type num_sentences: int
     :param passage_wise_processing: Whether to process passages instead of sentences, defaults to True
@@ -146,20 +155,28 @@ def perform_simple_rsa(
     # Generate a result matrix for all ROIs and all sent embed models
     result_df = pd.DataFrame(index=sent_model_names)  # columns=sorted(ROI_INDICES.keys())
 
-    # Don't include the vision subnetworks
+    # Don't include the vision subnetworks and deal differently with language
     rois = {
         k for k in ROI_INDICES.keys()
-        if k not in ["vision_object", "vision_face", "vision_scene", "vision_body"]
+        if k not in ["vision_object", "vision_face", "vision_scene", "vision_body", "language_lh", "language_rh"]
     }
-    # Process the language networks differently (average of left and right)
-    language_specific_vectors = []
+    rois.add("language")
+
+    # Also create a df in which all bootstrapping correlations are saved to (used later for statistical analyses
+    # and confidence intervals)
+    bootstrapped_results_df = pd.DataFrame(columns=["paradigm", "model", "roi", "correlation"])
 
     # 3. Calculate the correlation between each sentence embedding model and each ROI
     # (all subjects -> average corr matrix)
     for roi in sorted(rois):
         logger.info(f"Processing ROI: {roi}")
-
-        roi_specific_sim_mat = [all_subject_data[subj][roi] for subj in all_subject_ids]
+        if roi == "language":
+            # Average across subjects and left/right in this case
+            roi_specific_sim_mat = [
+                all_subject_data[subj][r] for subj in all_subject_ids for r in ["language_lh", "language_rh"]
+            ]
+        else:
+            roi_specific_sim_mat = [all_subject_data[subj][roi] for subj in all_subject_ids]
         # Average correlation matrices across all subjects for a given ROI
         av_roi_specific_sim_mat = np.mean(roi_specific_sim_mat, axis=0)
         av_roi_specific_sim_vector = get_sim_vector(av_roi_specific_sim_mat)
@@ -173,40 +190,43 @@ def perform_simple_rsa(
             for sent_rdm_vector in sent_rdm_vectors
         ]
 
-        if "language" not in roi:
-            # p-value for the Spearman correlation based on a permutation test
-            result_df.loc[:, roi + " p-value"] = [
-                permutation_test(
-                    sent_rdm_vector.reshape(1, -1),
-                    permutation_type="pairings",
-                    statistic=lambda data: CORRELATION_MEASURES[correlation_metric](
-                        data,
-                        av_roi_specific_sim_vector,
-                    )[0],
-                    n_resamples=n_resamples,
-                    alternative="greater",
-                ).pvalue
-                for sent_rdm_vector in sent_rdm_vectors
+        # Bootstrap the correlations to get multiple correlation estimates per ROI and sent embedding model
+        bootstrapped_correlations = []
+        # For each sentence embedding model
+        for sent_rdm_vector in sent_rdm_vectors:
+            # Sample n_resamples_bootstrapping subsets of size int(len(sent_rdm_vector) * bootstrapping_ratio))
+            # from the sent_rdm_vector and av_roi_specific_sim_vector to get multiple estimates for the correlation
+            bootstrapped_correlations = bootstrapped_correlations + [
+                CORRELATION_MEASURES[correlation_metric](
+                    sent_rdm_vector[indices],
+                    av_roi_specific_sim_vector[indices],
+                )[0] for indices in np.random.choice(
+                    len(sent_rdm_vector),
+                    (n_resamples_bootstrapping, int(len(sent_rdm_vector) * bootstrapping_ratio)),
+                )
             ]
-        else:
-            language_specific_vectors.append(av_roi_specific_sim_vector)
+        temp_df = pd.DataFrame.from_dict({"correlation": bootstrapped_correlations})
+        temp_df["roi"] = np.array([roi]).repeat(n_resamples_bootstrapping*len(sent_rdm_vectors))
+        temp_df["model"] = np.array(sent_model_names).repeat(n_resamples_bootstrapping)
+        temp_df["paradigm"] = np.array(
+            list(map(SENT_EMBED_MODEL_PARADIGMS.get, sent_model_names))
+        ).repeat(n_resamples_bootstrapping)
+        bootstrapped_results_df = pd.concat([bootstrapped_results_df, temp_df], ignore_index=True)
 
-    # Average language lh and rh, but calculate the p-value differently
-    result_df["language"] = result_df[["language_rh", "language_lh"]].mean(axis=1)
-    result_df.loc[:, "language" + " p-value"] = [
-        permutation_test(
-            sent_rdm_vector.reshape(1, -1),
-            permutation_type="pairings",
-            statistic=lambda data: np.mean([
-                CORRELATION_MEASURES[correlation_metric](data, language_specific_vectors[0])[0],
-                CORRELATION_MEASURES[correlation_metric](data, language_specific_vectors[1])[0],
-            ]),
-            n_resamples=n_resamples,
-            alternative="greater",
-        ).pvalue
-        for sent_rdm_vector in sent_rdm_vectors
-    ]
-    result_df.drop(columns=["language_rh", "language_lh"], inplace=True)
+        # p-value for the Spearman correlation based on a permutation test
+        result_df.loc[:, roi + " p-value"] = [
+            permutation_test(
+                sent_rdm_vector.reshape(1, -1),
+                permutation_type="pairings",
+                statistic=lambda data: CORRELATION_MEASURES[correlation_metric](
+                    data,
+                    av_roi_specific_sim_vector,
+                )[0],
+                n_resamples=n_resamples_permutation,
+                alternative="greater",
+            ).pvalue
+            for sent_rdm_vector in sent_rdm_vectors
+        ]
 
     # Add an average column to average the correlations from all ROIs
     result_df["mean"] = result_df[[i for i in result_df.columns if "p-value" not in i]].mean(axis=1)
@@ -216,6 +236,10 @@ def perform_simple_rsa(
     # Save the result
     result_df.to_csv(
         os.path.join(output_dir, f"rsa_correlations_{correlation_metric}_{pairwise_metric}_{text_key}.csv")
+    )
+    # Save the bootstrapped results as well
+    bootstrapped_results_df.to_csv(
+        os.path.join(output_dir, f"bootstrapped_correlations_{correlation_metric}_{pairwise_metric}_{text_key}.csv")
     )
 
     return result_df
