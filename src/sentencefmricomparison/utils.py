@@ -9,8 +9,7 @@ import torch
 from scipy._lib._util import check_random_state
 from scipy.special import comb, factorial
 from scipy.stats import kendalltau, pearsonr, spearmanr
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.linear_model import Lasso, LinearRegression, Ridge
 from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVR
 from torchmetrics.functional.pairwise import (
@@ -26,7 +25,7 @@ NEURAL_ENC_MODELS = {
     "ridge": Ridge(alpha=0.1),
     "mlp": MLPRegressor(),
     "svm": SVR(),
-    "rf": RandomForestRegressor(),
+    "lasso": Lasso(),
 }
 
 
