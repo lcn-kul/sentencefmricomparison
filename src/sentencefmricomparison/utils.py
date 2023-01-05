@@ -9,9 +9,8 @@ import torch
 from scipy._lib._util import check_random_state
 from scipy.special import comb, factorial
 from scipy.stats import kendalltau, pearsonr, spearmanr
-from sklearn.linear_model import Lasso, LinearRegression, Ridge
+from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.neural_network import MLPRegressor
-from sklearn.svm import SVR
 from torchmetrics.functional.pairwise import (
     pairwise_cosine_similarity,
     pairwise_euclidean_distance,
@@ -23,9 +22,9 @@ from transformers.file_utils import ModelOutput
 NEURAL_ENC_MODELS = {
     "linear": LinearRegression(),
     "ridge": Ridge(alpha=0.1),
+    "ridge0-01": Ridge(alpha=0.01),
+    "ridge0-5": Ridge(alpha=0.5),
     "mlp": MLPRegressor(),
-    "svm": SVR(),
-    "lasso": Lasso(),
 }
 
 
