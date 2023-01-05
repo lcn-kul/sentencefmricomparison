@@ -9,7 +9,7 @@ import pandas as pd
 import seaborn as sns
 from glob import glob
 
-from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR, SENT_EMBED_MODEL_NAMES_EN
+from sentencefmricomparison.constants import CUSTOM_COLOR_PALETTE, PEREIRA_OUTPUT_DIR, SENT_EMBED_MODEL_NAMES_EN
 
 
 @click.command()
@@ -47,7 +47,7 @@ def plot_mappings_from_neural_enc(
     )
 
     # 2. Seaborn box or strip plot
-    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (12, 8)},  font_scale=1.5)
+    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (20, 8)},  font_scale=1.5)
     fig, ax = plt.subplots()
 
     if strip_plot:
@@ -56,17 +56,18 @@ def plot_mappings_from_neural_enc(
             x="model",
             y="value",
             hue="variable",
-            palette="Set2",
-            dodge=True,
+            palette=CUSTOM_COLOR_PALETTE[:len(total_df["variable"].unique())],
+            dodge=0.1,
             jitter=False,
+            s=10,
         )
     else:
-        plot = sns.boxplot(
+        plot = sns.violinplot(
             data=total_df,
             x="model",
             y="value",
             hue="variable",
-            palette="Set2",
+            palette=CUSTOM_COLOR_PALETTE[:len(total_df["variable"].unique())],
             dodge=True,
         )
     plot.set_xticklabels(
@@ -78,7 +79,8 @@ def plot_mappings_from_neural_enc(
     # 3. Save the plot
     plt.legend()
     plt.tight_layout()
-    fig.savefig(os.path.join(output_dir, "strip_plot_mapping_comp.png"))
+    plot_type = "strip_plot" if strip_plot else "violin"
+    fig.savefig(os.path.join(output_dir, f"mapping_comp_{plot_type}.png"))
 
     return fig
 
