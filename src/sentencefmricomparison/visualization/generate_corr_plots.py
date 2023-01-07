@@ -327,6 +327,67 @@ def plot_correlogram_sent_models(
     return fig
 
 
+@click.command()
+@click.option(
+    "--neural-enc-input-file",
+    type=str,
+    default=os.path.join(PEREIRA_OUTPUT_DIR, "pereira_neural_enc_passages_pairwise_accuracy_ridge.csv"),
+)
+@click.option("--color", type=str, default="#CF995F")
+@click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
+def plot_corr_neural_enc_embed_size(
+    neural_enc_input_file: str = os.path.join(
+        PEREIRA_OUTPUT_DIR,
+        "pereira_neural_enc_passages_pairwise_accuracy_ridge.csv",
+    ),
+    color: str = "#CF995F",
+    output_dir: str = PEREIRA_OUTPUT_DIR,
+):
+    """Create a correlation plot between RSA correlations and embedding size/dimension
+
+    :param neural_enc_input_file: Input file for the neural encoding score
+    :type neural_enc_input_file: str
+    :param color: Color for the lineplot
+    :type color: str
+    :param output_dir: Output directory to save the plot to
+    :type output_dir: str
+    :return: Figure with lineplots of correlations between neural encoding accuracies and embedding sizes
+    :rtype: plt.Figure
+    """
+    # 1. Get the embedding size for each model
+    neural_enc_df = pd.read_csv(neural_enc_input_file, index_col=0, usecols=lambda x: "p-value" not in x)
+    for model_name in neural_enc_df.index:
+        model = SentenceEmbeddingModel(model_name)
+        try:
+            embed = model.encode_sentences(pd.Series(["some example"]))
+            embed_size = embed[0].shape[0]
+        except IndexError:
+            embed_size = model.model.config.n_embd
+        neural_enc_df.loc[model_name, "embed_size"] = embed_size
+
+    # 2. Melt all different ROI scores
+    neural_enc_df = neural_enc_df.melt(
+        id_vars=["embed_size"],
+        value_vars=[col for col in neural_enc_df.columns if "embed_size" not in col],
+    )
+    neural_enc_df = neural_enc_df[neural_enc_df["variable"] != "mean"]
+    neural_enc_df = neural_enc_df.rename(columns={"variable": "roi", "value": "neural_enc"})
+
+    # 3. Plot it
+    fig = plot_scatter_regplot(
+        data_df=neural_enc_df,
+        color=color,
+        output_path=os.path.join(output_dir, "corr_neural_enc_embed_size.png"),
+        x_axis="embed_size",
+        x_label="embedding size",
+        y_axis="neural_enc",
+        y_label="pairwise accuracy (neural encoding)",
+        per_brain_network=True,
+    )
+
+    return fig
+
+
 @click.group()
 def cli() -> None:
     """
@@ -339,4 +400,5 @@ if __name__ == "__main__":
     cli.add_command(plot_corr_rsa_neural_enc)
     cli.add_command(plot_corr_rsa_sent_eval)
     cli.add_command(plot_correlogram_sent_models)
+    cli.add_command(plot_corr_neural_enc_embed_size)
     cli()
