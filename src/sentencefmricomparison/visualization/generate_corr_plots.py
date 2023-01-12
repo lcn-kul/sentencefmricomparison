@@ -300,12 +300,12 @@ def plot_correlogram_sent_models(
         del model
 
     # 2. Get all pairwise correlations
-    pair_corr_df = pd.DataFrame.from_dict(sent_model_rdms).corr(method="spearman")
+    pair_corr_df = pd.DataFrame.from_dict(sent_model_rdms).corr(method="pearson")
     pair_corr_df = pair_corr_df.rename(columns=SENT_EMBED_MODEL_NAMES_EN, index=SENT_EMBED_MODEL_NAMES_EN)
 
     # 3. Plot them
     # Plot settings
-    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (12, 8)},  font_scale=1)
+    sns.set(font="Calibri", style="whitegrid", rc={'figure.figsize': (12, 8)},  font_scale=1.5)
     fig, ax = plt.subplots()
     # Only use the lower triangular matrix, excluding the diagonal
     mask = np.zeros_like(pair_corr_df)
@@ -319,7 +319,7 @@ def plot_correlogram_sent_models(
         vmin=0.0,
         vmax=1.0,
     )
-    heatmap.set_xticklabels(heatmap.get_yticklabels(), rotation=45)
+    heatmap.set_xticklabels(heatmap.get_yticklabels(), rotation=90)
     # Save the plot
     plt.tight_layout()
     fig.savefig(os.path.join(output_dir, "corr_plot_sent_embed_models.png"))
