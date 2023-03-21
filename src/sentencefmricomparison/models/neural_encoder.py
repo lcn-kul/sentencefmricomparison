@@ -3,22 +3,23 @@
 # Imports
 import logging
 import os
-from typing import List
+from typing import Dict, List, Union
 
 import click
 import numpy as np
+import optuna
 import pandas as pd
 import torch
 from datasets import load_dataset
 from scipy.spatial.distance import cosine
 from scipy.stats import pearsonr
 from sklearn.base import BaseEstimator
+from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.model_selection import cross_val_score
 from tqdm import tqdm
 
 from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR, SENT_EMBED_MODEL_LIST_EN
 from sentencefmricomparison.models.sentence_embedding_base import SentenceEmbeddingModel
-from sentencefmricomparison.utils import NEURAL_ENC_MODELS
 
 # Initialize logger
 logging.basicConfig()
@@ -83,25 +84,19 @@ def pearson_scoring(
     return np.mean(res)
 
 
-@click.command()
-@click.option("--dataset-hf-name", type=str, default="helena-balabin/pereira_fMRI_passages")
-@click.option("--sent-embed-models", type=str, multiple=True, default=SENT_EMBED_MODEL_LIST_EN)
-@click.option("--region-based", type=bool, default=True)
-@click.option("--sentence-key", type=str, default="")
-@click.option("--mapping", type=str, default="ridge")
-@click.option("--cv", type=int, default=5)
-@click.option("--scoring", type=str, default="pairwise_accuracy")
-@click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
 def calculate_brain_scores_cv(
     dataset_hf_name: str = "helena-balabin/pereira_fMRI_passages",
     sent_embed_models: List[str] = SENT_EMBED_MODEL_LIST_EN,
     region_based: bool = True,
+    rois: List[str] = ["dmn", "task", "vision", "language_lh", "language_rh"], # noqa
     sentence_key: str = "",
     mapping: str = "ridge",
+    mapping_params: Dict[str, Union[str, int, float]] = {"alpha": 1.0, "max_iter": 1000, "solver": "auto"},  # noqa
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
+    write_output: bool = True,
     output_dir: str = PEREIRA_OUTPUT_DIR,
-) -> pd.DataFrame:
+) -> Union[pd.DataFrame, float]:
     """Calculates brain scores (neural encoding performances) averaged across cross-validation folds and subjects.
 
     :param dataset_hf_name: Name of the huggingface dataset used for the sentence/paragraph and MRI data, defaults to
@@ -109,6 +104,8 @@ def calculate_brain_scores_cv(
     :type dataset_hf_name: str
     :param sent_embed_models: List of sentence embedding models used to encode the sentences
     :type sent_embed_models: List[str]
+    :param rois: List of brain regions of interest to calculate brain scores for
+    :type rois: List[str]
     :param region_based: Whether to calculate separate brain scores for each region of interest rather than the whole
         brain at once, defaults to True
     :type region_based: bool
@@ -116,16 +113,20 @@ def calculate_brain_scores_cv(
     :type sentence_key: str
     :param mapping: What kind of mapping model to use, defaults to "ridge"
     :type mapping: str
+    :param mapping_params: Hyperparameters for the mapping model
+    :type mapping_params: Dict[str, Union[str, int, float]]
     :param cv: Number of folds used for cross-validation included in the neural encoding procedure
     :type cv: int
     :param scoring: Scoring function used to evaluate the performance of the neural encoding approach, defaults to
         "pairwise_accuracy"
     :type scoring: str
+    :param write_output: Whether to write the output to a file, defaults to True
+    :type write_output: bool
     :param output_dir: Output directory to save the brain scores to
     :type output_dir: str
     :return: DataFrame with mean values for the "brain score(s)" (neural encoding performance), either all regions of
-        interest or all brain voxels, averaged across cross-validation folds and subjects
-    :rtype: pd.DataFrame
+        interest or all brain voxels, averaged across cross-validation folds and subjects, or a single float for HPO
+    :rtype: Union[pd.DataFrame, float]
     """
     # 1. Load the dataset from huggingface datasets
     dataset = load_dataset(dataset_hf_name)
@@ -133,7 +134,7 @@ def calculate_brain_scores_cv(
         sentence_key = "paragraphs" if "passages" in dataset_hf_name else "sentences"
 
     # 2. Initialize the regression model
-    mapping_model = NEURAL_ENC_MODELS[mapping]
+    mapping_model = Ridge(**mapping_params) if mapping == "ridge" else LinearRegression()
 
     # 3. Get the sentences/paragraphs
     sents = dataset["train"][0][sentence_key]
@@ -171,8 +172,7 @@ def calculate_brain_scores_cv(
 
                 # Only use "vision" rather than all the vision sub-networks
                 brain_rois = {
-                    k: torch.tensor(v) for k, v in subj.items() if k not in
-                    [sentence_key, "all", "vision_object", "vision_face", "vision_scene", "vision_body"]
+                    k: torch.tensor(v) for k, v in subj.items() if k in rois
                 }
 
                 roi_results = {}
@@ -194,7 +194,7 @@ def calculate_brain_scores_cv(
                 roi_results.pop("language_lh")
                 roi_results.pop("language_rh")
 
-                subj_results.append(pd.DataFrame(roi_results))
+                subj_results.append(pd.DataFrame(roi_results, index=[i]))
 
             else:
                 brain_voxels = torch.tensor(subj["all"])
@@ -218,23 +218,139 @@ def calculate_brain_scores_cv(
         results["mean"] = results.mean(axis=1)
 
     # 7. Save the averaged results
-    results.to_csv(
-        os.path.join(
-            output_dir,
-            f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}.csv",
-        ),
+    if write_output:
+        results.to_csv(
+            os.path.join(
+                output_dir,
+                f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}.csv",
+            ),
+        )
+        return results
+    else:
+        return results.iloc[0][0]
+
+
+@click.command()
+@click.option("--dataset-hf-name", type=str, default="helena-balabin/pereira_fMRI_passages")
+@click.option("--sent-embed-models", type=str, multiple=True, default=SENT_EMBED_MODEL_LIST_EN)
+@click.option("--region-based", type=bool, default=True)
+@click.option("--sentence-key", type=str, default="")
+@click.option("--mapping", type=str, default="ridge")
+@click.option("--cv", type=int, default=5)
+@click.option("--scoring", type=str, default="pairwise_accuracy")
+@click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
+def calculate_brain_scores_cv_wrapper(
+    dataset_hf_name: str = "helena-balabin/pereira_fMRI_passages",
+    sent_embed_models: List[str] = SENT_EMBED_MODEL_LIST_EN,
+    region_based: bool = True,
+    sentence_key: str = "",
+    mapping: str = "ridge",
+    cv: int = 5,
+    scoring: str = "pairwise_accuracy",
+    output_dir: str = PEREIRA_OUTPUT_DIR,
+) -> Union[pd.DataFrame, float]:
+    """Wrapper function for calculate_brain_scores_cv.
+
+        :param dataset_hf_name: Name of the huggingface dataset used for the sentence/paragraph and MRI data, defaults to
+        "helena-balabin/pereira_fMRI_passages"
+    :type dataset_hf_name: str
+    :param sent_embed_models: List of sentence embedding models used to encode the sentences
+    :type sent_embed_models: List[str]
+    :param region_based: Whether to calculate separate brain scores for each region of interest rather than the whole
+        brain at once, defaults to True
+    :type region_based: bool
+    :param sentence_key: Optional key for the name of the text data column in the dataset
+    :type sentence_key: str
+    :param mapping: What kind of mapping model to use, defaults to "ridge"
+    :type mapping: str
+    :param cv: Number of folds used for cross-validation included in the neural encoding procedure
+    :type cv: int
+    :param scoring: Scoring function used to evaluate the performance of the neural encoding approach, defaults to
+        "pairwise_accuracy"
+    :type scoring: str
+    :param output_dir: Output directory to save the brain scores to
+    :type output_dir: str
+    :return: DataFrame with mean values for the "brain score(s)" (neural encoding performance), either all regions of
+        interest or all brain voxels, averaged across cross-validation folds and subjects, or a single float for HPO
+    :rtype: Union[pd.DataFrame, float]
+    """
+    calculate_brain_scores_cv(
+        dataset_hf_name=dataset_hf_name,
+        sent_embed_models=sent_embed_models,
+        sentence_key=sentence_key,
+        mapping=mapping,
+        region_based=region_based,
+        cv=cv,
+        scoring=scoring,
+        write_output=True,
+        output_dir=output_dir,
     )
 
-    return results
+
+def objective(
+    optuna_trial: optuna.trial.Trial,
+) -> float:
+    """Objective function for the hyperparameter optimization.
+    """
+    # Define the hyperparameters to optimize
+    alpha = optuna_trial.suggest_categorical("alpha", [0, 0.5, 1.0, 2.0])
+    max_iter = optuna_trial.suggest_categorical("max_iter", [100, 500, 1000])
+    tol = optuna_trial.suggest_categorical("tol", [1e-3, 1e-4, 1e-5])
+
+    # Calculate a single brain score for the given hyperparameters
+    score = calculate_brain_scores_cv(
+        dataset_hf_name="helena-balabin/pereira_fMRI_passages",
+        sent_embed_models=["gpt2"],
+        rois=["language_rh", "language_lh"],
+        mapping="ridge",
+        mapping_params={"alpha": alpha, "max_iter": max_iter, "tol": tol},
+        write_output=False,
+    )
+
+    return score
+
+
+@click.command()
+@click.option(
+    "--output_dir",
+    "-o",
+    default=PEREIRA_OUTPUT_DIR,
+    help="The output directory to save the HPO results to.",
+)
+def hpo_neural_encoder(
+    output_dir: str = PEREIRA_OUTPUT_DIR,
+) -> None:
+    """Hyperparameter optimization for the neural encoder.
+
+    :param output_dir: The output directory to save the results to.
+    :type output_dir: str
+    :return: None
+    :rtype: None
+    """
+    # Define the search space
+    search_space = {
+        'alpha': [0, 0.5, 1.0, 2.0],
+        'max_iter': [100, 500, 1000],
+        'tol': [1e-3, 1e-4, 1e-5],
+    }
+    # Create the study and optimize
+    study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space))
+    study.optimize(objective, n_trials=48)
+
+    logger.info(f"All trial results: {study.trials_dataframe()}")
+
+    # Save the results
+    study.trials_dataframe().to_csv(os.path.join(output_dir, "pereira_neural_enc_hpo.csv"))
 
 
 @click.group()
 def cli() -> None:
     """
-    This is a preprocessing script for the preprocessed Pereira MATLAB files.
+    This the neural encoder.
     """
 
 
 if __name__ == "__main__":
-    cli.add_command(calculate_brain_scores_cv)
+    cli.add_command(calculate_brain_scores_cv_wrapper)
+    cli.add_command(hpo_neural_encoder)
     cli()
