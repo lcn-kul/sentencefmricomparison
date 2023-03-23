@@ -10,7 +10,7 @@ import numpy as np
 import optuna
 import pandas as pd
 import torch
-from datasets import load_dataset
+from datasets import DownloadMode, load_dataset
 from scipy.spatial.distance import cosine
 from scipy.stats import pearsonr
 from sklearn.base import BaseEstimator
@@ -90,8 +90,10 @@ def calculate_brain_scores_cv(
     region_based: bool = True,
     rois: List[str] = ["dmn", "task", "vision", "language_lh", "language_rh"], # noqa
     sentence_key: str = "",
+    only_middle: bool = False,
+    permuted_paragraphs: bool = False,
     mapping: str = "ridge",
-    mapping_params: Dict[str, Union[str, int, float]] = {"alpha": 1.0, "max_iter": 1000, "solver": "auto"},  # noqa
+    mapping_params: Union[Dict[str, Union[str, int, float]], None] = None,  # noqa
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
     write_output: bool = True,
@@ -111,6 +113,11 @@ def calculate_brain_scores_cv(
     :type region_based: bool
     :param sentence_key: Optional key for the name of the text data column in the dataset
     :type sentence_key: str
+    :param only_middle: Whether to only use the middle two sentences instead of all four (only works for paragraphs),
+        defaults to False
+    :type only_middle: bool
+    :param permuted_paragraphs: Perform analysis on permuted paragraphs, defaults to False
+    :type permuted_paragraphs: bool
     :param mapping: What kind of mapping model to use, defaults to "ridge"
     :type mapping: str
     :param mapping_params: Hyperparameters for the mapping model
@@ -128,16 +135,35 @@ def calculate_brain_scores_cv(
         interest or all brain voxels, averaged across cross-validation folds and subjects, or a single float for HPO
     :rtype: Union[pd.DataFrame, float]
     """
+    # Check possibly conflicting options
+    assert (
+        not (only_middle and permuted_paragraphs),
+        "only_middle and permuted_paragraphs can't be used at the same time"
+    )
+
     # 1. Load the dataset from huggingface datasets
     dataset = load_dataset(dataset_hf_name)
     if len(sentence_key) == 0:
         sentence_key = "paragraphs" if "passages" in dataset_hf_name else "sentences"
 
     # 2. Initialize the regression model
-    mapping_model = Ridge(**mapping_params) if mapping == "ridge" else LinearRegression()
+    if mapping_params:
+        mapping_model = Ridge(**mapping_params)
+    elif mapping == "ridge":
+        mapping_model = Ridge()
+    else:
+        mapping_model = LinearRegression()
 
     # 3. Get the sentences/paragraphs
     sents = dataset["train"][0][sentence_key]
+
+    # Only use the middle two sentences here for an alternative analysis
+    if only_middle:
+        sents = [". ".join(s.split(". ")[1:3]) + "." for s in sents]
+    # Or use permuted paragraphs here for an alternative analysis
+    if permuted_paragraphs:
+        sents = dataset["train"][0]["permuted_paragraphs"]
+
     # And try to encode them for each sentence embedding model
     sents_encoded_all_models = {}
     for model in sent_embed_models:
@@ -219,14 +245,16 @@ def calculate_brain_scores_cv(
 
     # 7. Save the averaged results
     if write_output:
-        results.to_csv(
-            os.path.join(
-                output_dir,
-                f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}.csv",
-            ),
-        )
+        if only_middle:
+            output_file = f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}_middle.csv"
+        elif permuted_paragraphs:
+            output_file = f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}_permuted.csv"
+        else:
+            output_file = f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}.csv"
+        results.to_csv(os.path.join(output_dir, output_file))
         return results
     else:
+        # For HPO, we are currently only interested in one numerical value (one model, one brain network)
         return results.iloc[0][0]
 
 
@@ -235,6 +263,8 @@ def calculate_brain_scores_cv(
 @click.option("--sent-embed-models", type=str, multiple=True, default=SENT_EMBED_MODEL_LIST_EN)
 @click.option("--region-based", type=bool, default=True)
 @click.option("--sentence-key", type=str, default="")
+@click.option("--only-middle", type=bool, default=False)
+@click.option("--permuted-paragraphs", type=bool, default=False)
 @click.option("--mapping", type=str, default="ridge")
 @click.option("--cv", type=int, default=5)
 @click.option("--scoring", type=str, default="pairwise_accuracy")
@@ -244,6 +274,8 @@ def calculate_brain_scores_cv_wrapper(
     sent_embed_models: List[str] = SENT_EMBED_MODEL_LIST_EN,
     region_based: bool = True,
     sentence_key: str = "",
+    only_middle: bool = False,
+    permuted_paragraphs: bool = False,
     mapping: str = "ridge",
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
@@ -251,8 +283,8 @@ def calculate_brain_scores_cv_wrapper(
 ) -> Union[pd.DataFrame, float]:
     """Wrapper function for calculate_brain_scores_cv.
 
-        :param dataset_hf_name: Name of the huggingface dataset used for the sentence/paragraph and MRI data, defaults to
-        "helena-balabin/pereira_fMRI_passages"
+    :param dataset_hf_name: Name of the huggingface dataset used for the sentence/paragraph and MRI data, defaults to
+    "helena-balabin/pereira_fMRI_passages"
     :type dataset_hf_name: str
     :param sent_embed_models: List of sentence embedding models used to encode the sentences
     :type sent_embed_models: List[str]
@@ -261,6 +293,11 @@ def calculate_brain_scores_cv_wrapper(
     :type region_based: bool
     :param sentence_key: Optional key for the name of the text data column in the dataset
     :type sentence_key: str
+    :param only_middle: Whether to only use the middle two sentences instead of all four (only works for paragraphs),
+        defaults to False
+    :type only_middle: bool
+    :param permuted_paragraphs: Perform analysis on permuted paragraphs, defaults to False
+    :type permuted_paragraphs: bool
     :param mapping: What kind of mapping model to use, defaults to "ridge"
     :type mapping: str
     :param cv: Number of folds used for cross-validation included in the neural encoding procedure
@@ -278,6 +315,8 @@ def calculate_brain_scores_cv_wrapper(
         dataset_hf_name=dataset_hf_name,
         sent_embed_models=sent_embed_models,
         sentence_key=sentence_key,
+        only_middle=only_middle,
+        permuted_paragraphs=permuted_paragraphs,
         mapping=mapping,
         region_based=region_based,
         cv=cv,

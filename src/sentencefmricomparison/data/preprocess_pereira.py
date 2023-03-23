@@ -201,11 +201,18 @@ def convert_to_hf_dataset(
     else:
         mri_file_names = [f for f in mri_file_names if "passage" not in f]
 
+    # Add the permuted sentences to the dataset as well
+    if passage_wise_processing:
+        permuted_file = pd.read_csv(os.path.join(processed_mri_dir, "pereira_permuted_passages.csv"))
+
     # Load all the MRI data from the files
     mri_files = []
     for file in mri_file_names:
         with open(file, "rb") as f:
-            mri_files.append(pickle.load(f))
+            mri_data_dict = pickle.load(f)
+            if passage_wise_processing:
+                mri_data_dict["permuted_paragraphs"] = permuted_file["permuted_sents"].tolist()
+            mri_files.append(mri_data_dict)
 
     # Convert into a huggingface dataset
     dataset = Dataset.from_list(mri_files)
