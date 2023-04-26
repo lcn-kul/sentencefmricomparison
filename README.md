@@ -2,7 +2,11 @@
 
 ## 💪 Getting Started
 
-TODO insert image
+The following figure provides an overview of the workflow of this project.
+
+<p align="center">
+  <img src="images/workflow.png" height="150">
+</p>
 
 ### Command Line Interface
 
