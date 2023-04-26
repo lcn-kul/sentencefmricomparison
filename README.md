@@ -18,10 +18,12 @@ $ python3 cli.py --help
 
 ## 🚀 Installation
 
-The most recent code can be installed directly from GitHub with:
+The most recent code can be installed directly from GitHub using:
 
 ```bash
-$ pip install git+https://github.com//compositionality-study.git
+$ git clone git@github.com:lcn-kul/sentencefmricomparison.git
+$ cd sentencefmricomparison
+$ pip install -e .
 ```
 ## 👋 Attribution
 
