@@ -67,7 +67,10 @@ def main():
     # Load transformers' model checkpoint
     sent_model = SentenceEmbeddingModel(args.model_name_or_path)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    sent_model.model = sent_model.model.to(device)
+    try:
+        sent_model.model = sent_model.model.to(device)
+    except:  # noqa
+        pass
 
     # Set up the tasks
     if args.task_set == 'sts':
