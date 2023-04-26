@@ -22,7 +22,7 @@ NETWORK_NAMES = {
 
 
 @click.option("--network-colors", multiple=True, default=["#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3"])
-@click.option("--network-nifti-path", multiple=True, default=NETWORK_NIFTI_DIR)
+@click.option("--network-nifti-path", type=str, default=NETWORK_NIFTI_DIR)
 @click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
 @click.command()
 def visualize_brain_networks(
