@@ -5,7 +5,7 @@
 The following figure provides an overview of the workflow of this project.
 
 <p align="center">
-  <img src="images/workflow.png" height="300">
+  <img src="images/workflow.png" height="225">
 </p>
 
 ### Command Line Interface
