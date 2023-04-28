@@ -8,6 +8,9 @@ from sentencefmricomparison.data.preprocess_pereira import (
     get_subject_data,
     save_pereira_sentences,
 )
+from sentencefmricomparison.models.gpt3_embeddings import (
+    generate_gpt3_embeddings,
+)
 from sentencefmricomparison.models.neural_encoder import (
     calculate_brain_scores_cv_wrapper,
     hpo_neural_encoder,
@@ -40,6 +43,7 @@ def cli() -> None:
 if __name__ == "__main__":
     cli.add_command(calculate_brain_scores_cv_wrapper)
     cli.add_command(convert_to_hf_dataset)
+    cli.add_command(generate_gpt3_embeddings)
     cli.add_command(generate_permuted_passages)
     cli.add_command(get_subject_data)
     cli.add_command(hpo_neural_encoder)

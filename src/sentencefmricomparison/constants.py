@@ -46,6 +46,9 @@ LARGE_DATASET_STORAGE_PATH = os.path.join(
 LARGE_MODELS_STORAGE_PATH = os.path.join(
     os.getenv("LARGE_STORAGE_PATH") or "~/.cache/huggingface", "transformers"
 )
+# OpenAI API key and model used to generate GPT-3 embeddings
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_DEFAULT_MODEL = "text-embedding-ada-002"
 
 # Sent-eval benchmark constants
 PATH_TO_SENTEVAL = os.getenv("PATH_TO_SENTEVAL") or './SentEval'
