@@ -4,14 +4,14 @@ import os
 from typing import Callable, List, Optional, Union
 
 import pandas as pd
+import pickle as pkl
 import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModel, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
 from sentencefmricomparison.constants import (
-    HF_TOKEN_PRED_BERT,
+    GPT3_EMBEDS_PATH,
     INFERENCE_BATCH_SIZE,
-    QUICKTHOUGHTS_MODEL_DIR,
     SENTENCE_EMBED_DEFAULT_EN,
     SKIPTHOUGHTS_MODEL_DIR,
 )
@@ -33,6 +33,7 @@ class SentenceEmbeddingModel:
         distance_measure: Callable = PAIRWISE_DISTANCES["cosine"],
         pooling_strategy: str = POOLING_STRATEGIES["avg"],
         inference_batch_size: int = INFERENCE_BATCH_SIZE,
+        gpt3_embed_path: str = GPT3_EMBEDS_PATH,
     ):
         """Initialize a semantic comparison sentence embedding model.
 
@@ -45,6 +46,8 @@ class SentenceEmbeddingModel:
         :type distance_measure: Callable
         :param inference_batch_size: Batch size used during inference (obtaining sentence embeddings)
         :type inference_batch_size: int
+        :param gpt3_embed_path: Path to the precomputed GPT-3 embeddings (only relevant to GPT-3), defaults to None
+        :type gpt3_embed_path: str, optional
         """
         # Specify the model type
         self.model_name = model_name
@@ -55,10 +58,12 @@ class SentenceEmbeddingModel:
             # package with its encode function in that case instead
             self.tokenizer = None
             self.model = SentenceTransformer(self.model_name)
-        # Use the authentification token for the Pred-BERT based models
-        elif "vgaraujov" in self.model_name:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_auth_token=HF_TOKEN_PRED_BERT)
-            self.model = AutoModel.from_pretrained(self.model_name, use_auth_token=HF_TOKEN_PRED_BERT)
+        elif "gpt3" in self.model_name:
+            self.tokenizer = None
+            # For GPT-3, the "model" is just a dictionary of precomputed embeddings for all possible sentences in this
+            # analysis
+            with open(gpt3_embed_path, "rb") as f:
+                self.model = pkl.load(f)
         # Skip-Thoughts setup
         elif self.model_name == "skipthoughts":
             from skip_thoughts import configuration
@@ -72,11 +77,6 @@ class SentenceEmbeddingModel:
                 embedding_matrix_file=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "embeddings.npy"),
                 checkpoint_path=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "model.ckpt-501424"),
             )
-        elif self.model_name == "quickthoughts":
-            from quickthoughts.learner import QTLearner
-
-            self.tokenizer = None
-            self.model = QTLearner.create_from_checkpoint(QUICKTHOUGHTS_MODEL_DIR)
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self.model = AutoModel.from_pretrained(self.model_name)
@@ -123,7 +123,7 @@ class SentenceEmbeddingModel:
                         self.model(**inputs), inputs["attention_mask"]
                     ).to('cpu')
             else:
-                # Use the SentenceTransformer/Skip/QuickThoughts syntax if there is no tokenizer
+                # Use the SentenceTransformer/SkipThoughts syntax if there is no tokenizer
                 with torch.no_grad():
                     if "sentence-transformers" in self.model_name:
                         output = self.pooling_stategy(
@@ -136,9 +136,10 @@ class SentenceEmbeddingModel:
                     # SkipThoughts
                     elif self.model_name == "skipthoughts":
                         output = torch.from_numpy(self.model.encode(batch))
-                    # QuickThoughts
+                    # GPT-3
                     else:
-                        output = torch.from_numpy(self.model.predict(batch))
+                        # Use the pre-computed embeddings for GPT-3
+                        output = [self.model[sent] for sent in batch]
 
             encoded_sentences += [sent_embed for sent_embed in output]
 
