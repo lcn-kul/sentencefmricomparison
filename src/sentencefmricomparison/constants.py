@@ -37,8 +37,6 @@ load_dotenv()
 LOCAL_EXECUTION = os.getenv("LOCAL_EXECUTION") or "True"
 # Constant for the maximum batch size that should be used during inference
 INFERENCE_BATCH_SIZE = int(os.getenv("INFERENCE_BATCH_SIZE")) or 4
-# Huggingface access token for the Pred-based sentence embedding models
-HF_TOKEN_PRED_BERT = os.getenv("HF_TOKEN_PRED_BERT")
 # Directory for saving large datasets or language models
 LARGE_DATASET_STORAGE_PATH = os.path.join(
     os.getenv("LARGE_STORAGE_PATH") or "~/.cache/huggingface", "datasets"
@@ -49,6 +47,8 @@ LARGE_MODELS_STORAGE_PATH = os.path.join(
 # OpenAI API key and model used to generate GPT-3 embeddings
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_DEFAULT_MODEL = "text-embedding-ada-002"
+# The resulting embeddings are saved in a pickle file
+GPT3_EMBEDS_PATH = os.path.join(PEREIRA_OUTPUT_DIR, "gpt3_embeds.pkl")
 
 # Sent-eval benchmark constants
 PATH_TO_SENTEVAL = os.getenv("PATH_TO_SENTEVAL") or './SentEval'
@@ -86,14 +86,14 @@ SENTENCE_EMBED_DEFAULT_EN = "sentence-transformers/stsb-roberta-large"
 # in English
 SENT_EMBED_MODEL_LIST_EN = [
     # word averaging
-    "sentence-transformers/average_word_embeddings_glove.6B.300d",  # GloVe averaging
-    "roberta-large",  # RoBERTa-large averaging
-    "gpt2",  # GPT-2 averaging
+    "bert-base-uncased",  # BERT-base
+    "roberta-large",  # RoBERTa-large
+    "microsoft/deberta-base",  # DeBERTa-base
     # pragmatic coherence
     "skipthoughts",
-    "quickthoughts",
-    "vgaraujov/PredBERT-T",  # Alteratives are: vgaraujov/PredBERT-T, vgaraujov/PredALBERT-T, vgaraujov/PredALBERT-R
-    # semantic comparison
+    "gpt2",
+    "gpt3",
+    # semantic comparison5
     "sentence-transformers/roberta-large-nli-stsb-mean-tokens",  # S-BERT based on RoBERTa-large
     "princeton-nlp/sup-simcse-roberta-large",  # SUPERVISED SimCSE based on RoBERTa-large
     "sentence-transformers/sentence-t5-base",  # Sentence-T5 based on T5 (fine-tuned on QA + NLI)
@@ -104,12 +104,12 @@ SENT_EMBED_MODEL_LIST_EN = [
 ]
 
 SENT_EMBED_MODEL_NAMES_EN = {
-    "sentence-transformers/average_word_embeddings_glove.6B.300d": "GloVe",
+    "bert-base-uncased": "BERT",
     "roberta-large": "RoBERTa",
-    "gpt2": "GPT2",
+    "microsoft/deberta-base": "DeBERTa",
     "skipthoughts": "SkipThoughts",
-    "quickthoughts": "QuickThoughts",
-    "vgaraujov/PredBERT-T": "PredBERT",
+    "gpt2": "GPT-2",
+    "gpt3": "GPT-3",
     "sentence-transformers/roberta-large-nli-stsb-mean-tokens": "S-RoBERTa",
     "princeton-nlp/sup-simcse-roberta-large": "sup-SimCSE",
     "sentence-transformers/sentence-t5-base": "S-T5",
@@ -119,12 +119,12 @@ SENT_EMBED_MODEL_NAMES_EN = {
 }
 
 SENT_EMBED_MODEL_PARADIGMS = {
-    "sentence-transformers/average_word_embeddings_glove.6B.300d": "word-averaging",
+    "bert-base-uncased": "word-averaging",
     "roberta-large": "word-averaging",
-    "gpt2": "word-averaging",
+    "microsoft/deberta-base": "word-averaging",
     "skipthoughts": "pragmatic-coherence",
-    "quickthoughts": "pragmatic-coherence",
-    "vgaraujov/PredBERT-T": "pragmatic-coherence",
+    "gpt2": "pragmatic-coherence",
+    "gpt3": "pragmatic-coherence",
     "sentence-transformers/roberta-large-nli-stsb-mean-tokens": "semantic-comparison",
     "princeton-nlp/sup-simcse-roberta-large": "semantic-comparison",
     "sentence-transformers/sentence-t5-base": "semantic-comparison",
