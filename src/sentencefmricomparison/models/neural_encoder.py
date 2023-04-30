@@ -10,7 +10,7 @@ import numpy as np
 import optuna
 import pandas as pd
 import torch
-from datasets import DownloadMode, load_dataset
+from datasets import load_dataset
 from scipy.spatial.distance import cosine
 from scipy.stats import pearsonr
 from sklearn.base import BaseEstimator
@@ -167,12 +167,7 @@ def calculate_brain_scores_cv(
     # And try to encode them for each sentence embedding model
     sents_encoded_all_models = {}
     for model in sent_embed_models:
-        try:
-            sents_encoded_all_models[model] = torch.stack(SentenceEmbeddingModel(model).encode_sentences(sents))
-        except OSError:
-            # Some models might not be able to be initialized because they are part of a private repository requiring
-            # an access token
-            logger.info(f"{model} was skipped (likely due to being part of a private repository)")
+        sents_encoded_all_models[model] = torch.stack(SentenceEmbeddingModel(model).encode_sentences(sents))
 
     # 4. Set up the scoring function if needed
     scoring_func = None
@@ -280,7 +275,7 @@ def calculate_brain_scores_cv_wrapper(
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
     output_dir: str = PEREIRA_OUTPUT_DIR,
-) -> Union[pd.DataFrame, float]:
+):
     """Wrapper function for calculate_brain_scores_cv.
 
     :param dataset_hf_name: Name of the huggingface dataset used for the sentence/paragraph and MRI data, defaults to
@@ -307,9 +302,6 @@ def calculate_brain_scores_cv_wrapper(
     :type scoring: str
     :param output_dir: Output directory to save the brain scores to
     :type output_dir: str
-    :return: DataFrame with mean values for the "brain score(s)" (neural encoding performance), either all regions of
-        interest or all brain voxels, averaged across cross-validation folds and subjects, or a single float for HPO
-    :rtype: Union[pd.DataFrame, float]
     """
     calculate_brain_scores_cv(
         dataset_hf_name=dataset_hf_name,
