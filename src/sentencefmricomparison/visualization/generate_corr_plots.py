@@ -3,7 +3,6 @@
 # Imports
 import logging
 import os
-from itertools import combinations
 from glob import glob
 from typing import List
 
@@ -12,8 +11,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import torch
-from torchmetrics.functional.pairwise import pairwise_cosine_similarity
 
 from sentencefmricomparison.constants import (
     PEREIRA_OUTPUT_DIR,
