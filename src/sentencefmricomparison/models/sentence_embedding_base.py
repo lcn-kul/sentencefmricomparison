@@ -139,7 +139,7 @@ class SentenceEmbeddingModel:
                     # GPT-3
                     else:
                         # Use the pre-computed embeddings for GPT-3
-                        output = [self.model[sent] for sent in batch]
+                        output = [self.model[sent.strip()] for sent in batch]
 
             encoded_sentences += [sent_embed for sent_embed in output]
 
