@@ -1,7 +1,7 @@
 """Base class for sentence embedding paradigms/models that are used."""
 
 import os
-from typing import Callable, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import pandas as pd
 import pickle as pkl
@@ -21,7 +21,7 @@ from sentencefmricomparison.utils import PAIRWISE_DISTANCES, POOLING_STRATEGIES
 class SentenceEmbeddingModel:
     """Base class for all sentence embedding models."""
 
-    model: Union[PreTrainedModel, SentenceTransformer]
+    model: Union[PreTrainedModel, SentenceTransformer, Dict]
     model_name: str
     tokenizer: Optional[PreTrainedTokenizer]
     distance_measure: Callable = PAIRWISE_DISTANCES["cosine"]
