@@ -356,7 +356,12 @@ def plot_corr_neural_enc_embed_size(
     for model_name in neural_enc_df.index:
         model = SentenceEmbeddingModel(model_name)
         try:
-            embed = model.encode_sentences(pd.Series(["some example"]))
+            embed = model.encode_sentences(
+                pd.Series(
+                    ["Apples have thin skin, a crisp, sweet pulp and seeds inside. "
+                     "Some very tart apples are used to make cider."]
+                )
+            )
             embed_size = embed[0].shape[0]
         except IndexError:
             embed_size = model.model.config.n_embd
