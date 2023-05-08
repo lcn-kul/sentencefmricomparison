@@ -21,7 +21,7 @@ $ python3 cli.py --help
 The most recent code can be installed directly from GitHub using:
 
 ```bash
-$ git clone git@github.com:lcn-kul/sentencefmricomparison.git
+$ git clone git@github.com:<TODO>/sentencefmricomparison.git
 $ cd sentencefmricomparison
 $ pip install -e .
 ```
