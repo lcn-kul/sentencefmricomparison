@@ -37,7 +37,7 @@ TODO
 
 ### 💰 Funding
 
-This project was supported by funding from the Research Foundation - Flanders (Fonds Wetenschappelijk Onderzoek, FWO) grant 1154623N.
+TODO
 
 ### 🍪 Cookiecutter
 
