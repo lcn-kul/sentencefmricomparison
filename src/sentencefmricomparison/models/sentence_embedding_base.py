@@ -63,7 +63,7 @@ class SentenceEmbeddingModel:
             # For GPT-3, the "model" is just a dictionary of precomputed embeddings for all possible sentences in this
             # analysis
             with open(gpt3_embed_path, "rb") as f:
-                self.model = pkl.load(f)
+                self.model = {k.strip(): v for k,v in pkl.load(f).items()}
         # Skip-Thoughts setup
         elif self.model_name == "skipthoughts":
             from skip_thoughts import configuration

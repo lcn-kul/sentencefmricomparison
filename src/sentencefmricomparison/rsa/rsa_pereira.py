@@ -52,6 +52,7 @@ def get_sim_vector(
 @click.option("--correlation-metric", type=click.Choice(CORRELATION_MEASURES.keys()), default="spearman")
 @click.option("--n-resamples-permutation", type=int, default=10000)
 @click.option("--num-sentences", type=int, default=-1)
+@click.option("--alpha", type=float, default=0.05)
 @click.option("--passage-wise-processing", type=bool, default=True)
 @click.option("--individual-correlations", type=bool, default=False)
 @click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
@@ -62,6 +63,7 @@ def perform_rsa(
     correlation_metric: str = "spearman",
     n_resamples_permutation: int = 10000,
     num_sentences: str = -1,
+    alpha: float = 0.05,
     passage_wise_processing: bool = True,
     individual_correlations: bool = False,
     output_dir: str = PEREIRA_OUTPUT_DIR,
@@ -82,6 +84,8 @@ def perform_rsa(
     :type n_resamples_permutation: int
     :param num_sentences: Number of sentences used in the overall analysis, defaults to -1 (all)
     :type num_sentences: int
+    :param alpha: Alpha level for the CIs based on permutation testing, defaults to 0.05
+    :type alpha: float
     :param passage_wise_processing: Whether to process passages instead of sentences, defaults to True
     :type passage_wise_processing: str
     :param individual_correlations: Whether to also calculate correlations for individual subjects, defaults to False
@@ -213,7 +217,7 @@ def perform_rsa(
         ]
 
         # p-value for the Spearman correlation based on a permutation test
-        result_df.loc[:, roi + " p-value"] = [
+        perm_tests = [
             permutation_test(
                 sent_rdm_vector.reshape(1, -1),
                 permutation_type="pairings",
@@ -223,12 +227,17 @@ def perform_rsa(
                 )[0],
                 n_resamples=n_resamples_permutation,
                 alternative="greater",
-            ).pvalue
+            )
             for sent_rdm_vector in sent_rdm_vectors
+        ]
+        result_df.loc[:, roi + " p-value"] = [p.pvalue for p in perm_tests]
+        result_df.loc[:, roi + " CI"] = [
+            str(np.percentile(p.null_distribution, [alpha/2 * 100, (1 - alpha/2) * 100]))
+            for p in perm_tests
         ]
 
     # Add an average column to average the correlations from all ROIs
-    result_df["mean"] = result_df[[i for i in result_df.columns if "p-value" not in i]].mean(axis=1)
+    result_df["mean"] = result_df[[i for i in result_df.columns if "p-value" not in i and "CI" not in i]].mean(axis=1)
 
     logger.info(f"Correlations between LMs and ROIs")
     logger.info(result_df)
