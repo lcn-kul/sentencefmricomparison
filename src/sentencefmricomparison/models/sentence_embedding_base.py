@@ -7,7 +7,7 @@ import pandas as pd
 import pickle as pkl
 import torch
 from sentence_transformers import SentenceTransformer
-from transformers import AutoModel, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
+from transformers import AutoModel, AutoTokenizer, GPT2Config, GPT2Model, PreTrainedModel, PreTrainedTokenizer
 
 from sentencefmricomparison.constants import (
     GPT3_EMBEDS_PATH,
@@ -77,14 +77,19 @@ class SentenceEmbeddingModel:
                 embedding_matrix_file=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "embeddings.npy"),
                 checkpoint_path=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "model.ckpt-501424"),
             )
+        # Setup for a random GPT-2 based baseline
+        elif self.model_name == "gpt2-random":
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            config = GPT2Config()
+            self.model = GPT2Model(config)
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self.model = AutoModel.from_pretrained(self.model_name)
 
-            # Add a pseudo padding token to GPT2 (it's only needed to ensure a consistent output shape and it's
-            # disregarded when averaging token embeddings)
-            if self.model_name == "gpt2":
-                self.tokenizer.pad_token = self.tokenizer.eos_token
+        # Add a pseudo padding token to GPT2 (it's only needed to ensure a consistent output shape and it's
+        # disregarded when averaging token embeddings)
+        if self.model_name == "gpt2":
+            self.tokenizer.pad_token = self.tokenizer.eos_token
 
         self.pooling_stategy = pooling_strategy
         self.distance_measure = distance_measure

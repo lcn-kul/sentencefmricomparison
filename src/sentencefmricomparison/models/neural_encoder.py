@@ -88,6 +88,7 @@ def calculate_brain_scores_cv(
     dataset_hf_name: str = "helena-balabin/pereira_fMRI_passages",
     sent_embed_models: List[str] = SENT_EMBED_MODEL_LIST_EN,
     region_based: bool = True,
+    combine_lh_rh: bool = True,
     rois: List[str] = ["dmn", "task", "vision", "language_lh", "language_rh"], # noqa
     sentence_key: str = "",
     only_middle: bool = False,
@@ -108,9 +109,11 @@ def calculate_brain_scores_cv(
     :type sent_embed_models: List[str]
     :param rois: List of brain regions of interest to calculate brain scores for
     :type rois: List[str]
-    :param region_based: Whether to calculate separate brain scores for each region of interest rather than the whole
+    :param region_based: Whether to calculate combine brain scores for each region of interest rather than the whole
         brain at once, defaults to True
     :type region_based: bool
+    :param combine_lh_rh: Whether to calculate combine brain scores for the left and right hemisphere of the language
+        network, defaults to False
     :param sentence_key: Optional key for the name of the text data column in the dataset
     :type sentence_key: str
     :param only_middle: Whether to only use the middle two sentences instead of all four (only works for paragraphs),
@@ -186,7 +189,7 @@ def calculate_brain_scores_cv(
         # Create a result df that saves the results per subject first
         subj_results = []
         for i, subj in enumerate(dataset["train"]):
-            # 6.1 Get the MRI features, perform either separate regression for each region of interest or all voxels
+            # 6.1 Get the MRI features, perform either combine regression for each region of interest or all voxels
             # and get the respective cross validation scores
             if region_based:
                 logger.info(f"{model}: Processing subj. {i + 1}/{len(dataset['train'])}")
@@ -210,10 +213,11 @@ def calculate_brain_scores_cv(
                     )
                     roi_results[roi_name] = [brain_score]
 
-                # Average results from language lh and language rh
-                roi_results["language"] = np.mean([roi_results["language_lh"], roi_results["language_rh"]])
-                roi_results.pop("language_lh")
-                roi_results.pop("language_rh")
+                if combine_lh_rh:
+                    # Average results from language lh and language rh
+                    roi_results["language"] = np.mean([roi_results["language_lh"], roi_results["language_rh"]])
+                    roi_results.pop("language_lh")
+                    roi_results.pop("language_rh")
 
                 subj_results.append(pd.DataFrame(roi_results, index=[i]))
 
@@ -222,8 +226,8 @@ def calculate_brain_scores_cv(
                 brain_score = np.mean(
                     cross_val_score(
                         mapping_model,
-                        sents_encoded.to("cpu"),
-                        brain_voxels.to("cpu"),
+                        sents_encoded.to("cpu").numpy(),
+                        brain_voxels.to("cpu").numpy(),
                         scoring=scoring_func or scoring,
                     )
                 )
@@ -257,6 +261,7 @@ def calculate_brain_scores_cv(
 @click.option("--dataset-hf-name", type=str, default="helena-balabin/pereira_fMRI_passages")
 @click.option("--sent-embed-models", type=str, multiple=True, default=SENT_EMBED_MODEL_LIST_EN)
 @click.option("--region-based", type=bool, default=True)
+@click.option("--combine-lh-rh", type=bool, default=True)
 @click.option("--sentence-key", type=str, default="")
 @click.option("--only-middle", type=bool, default=False)
 @click.option("--permuted-paragraphs", type=bool, default=False)
@@ -268,6 +273,7 @@ def calculate_brain_scores_cv_wrapper(
     dataset_hf_name: str = "helena-balabin/pereira_fMRI_passages",
     sent_embed_models: List[str] = SENT_EMBED_MODEL_LIST_EN,
     region_based: bool = True,
+    combine_lh_rh: bool = True,
     sentence_key: str = "",
     only_middle: bool = False,
     permuted_paragraphs: bool = False,
@@ -283,9 +289,12 @@ def calculate_brain_scores_cv_wrapper(
     :type dataset_hf_name: str
     :param sent_embed_models: List of sentence embedding models used to encode the sentences
     :type sent_embed_models: List[str]
-    :param region_based: Whether to calculate separate brain scores for each region of interest rather than the whole
+    :param region_based: Whether to calculate combine brain scores for each region of interest rather than the whole
         brain at once, defaults to True
     :type region_based: bool
+    :param combine_lh_rh: Whether to calculate combine brain scores for the left and right hemisphere for the language
+        network, defaults to True
+    :type combine_lh_rh: bool
     :param sentence_key: Optional key for the name of the text data column in the dataset
     :type sentence_key: str
     :param only_middle: Whether to only use the middle two sentences instead of all four (only works for paragraphs),
@@ -307,6 +316,7 @@ def calculate_brain_scores_cv_wrapper(
         dataset_hf_name=dataset_hf_name,
         sent_embed_models=sent_embed_models,
         sentence_key=sentence_key,
+        combine_lh_rh=combine_lh_rh,
         only_middle=only_middle,
         permuted_paragraphs=permuted_paragraphs,
         mapping=mapping,
