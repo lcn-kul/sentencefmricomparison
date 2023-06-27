@@ -88,7 +88,7 @@ class SentenceEmbeddingModel:
 
         # Add a pseudo padding token to GPT2 (it's only needed to ensure a consistent output shape and it's
         # disregarded when averaging token embeddings)
-        if self.model_name == "gpt2":
+        if "gpt2" in self.model_name:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
         self.pooling_stategy = pooling_strategy
