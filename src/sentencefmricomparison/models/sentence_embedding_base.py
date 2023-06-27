@@ -79,7 +79,7 @@ class SentenceEmbeddingModel:
             )
         # Setup for a random GPT-2 based baseline
         elif self.model_name == "gpt2-random":
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained("gpt2")
             config = GPT2Config()
             self.model = GPT2Model(config)
         else:
