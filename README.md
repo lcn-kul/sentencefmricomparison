@@ -38,8 +38,8 @@ An easier alternative for the subsequential parts of the analyses is to directly
 
 ### Analyses
 
-The key parts of the analyses can be replicated using the following CLI commands (note that some steps might require 
-previously preprocessed data):
+The key parts of the analyses can be replicated using the following CLI commands. Note that some steps might require 
+previously preprocessed data, and you might need to switch to the right directory first `cd src/sentencefmricomparison`.
 - **RSA**
   ```shell
     $ python3 cli.py perform-rsa
