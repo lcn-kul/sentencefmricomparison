@@ -36,7 +36,7 @@ load_dotenv()
 # Load a constant for distinguishing between local and cluster execution (default = True)
 LOCAL_EXECUTION = os.getenv("LOCAL_EXECUTION") or "True"
 # Constant for the maximum batch size that should be used during inference
-INFERENCE_BATCH_SIZE = int(os.getenv("INFERENCE_BATCH_SIZE")) or 4
+INFERENCE_BATCH_SIZE = int(os.getenv("INFERENCE_BATCH_SIZE") or 4)
 # Directory for saving large datasets or language models
 LARGE_DATASET_STORAGE_PATH = os.path.join(
     os.getenv("LARGE_STORAGE_PATH") or "~/.cache/huggingface", "datasets"
