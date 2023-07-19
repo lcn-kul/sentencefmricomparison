@@ -1,4 +1,9 @@
-# A Comprehensive Analysis of the Neural Fits of Sentence Embedding Model Paradigms
+# Investigating Neural Fit Approaches for Sentence Embedding Model Paradigms
+
+This repository contains the code for our paper accepted for ECAI 2023:
+> H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vandenberghe, and M.-F. Moens, “Investigating Neural Fit Approaches 
+> for Sentence Embedding Model Paradigms,” To appear in Proceedings of the 24th European Conference on Artificial 
+> Intelligence, Kraków, Poland: IOS Press, Oct. 2023.
 
 ## 💪 Getting Started
 
@@ -8,20 +13,53 @@ The following figure provides an overview of the workflow of this project.
   <img src="images/workflow.png" height="225">
 </p>
 
-### Command Line Interface
+### Data
 
-Use the following command to get an overview of the main components of the compositionality_study CLI to replicate the analyses:
+The basis for this project is the publicly available Pereira dataset (F. Pereira et al., “Toward a universal decoder of 
+linguistic meaning from brain activation,” Nat Commun, vol. 9, no. 1, p. 963, Mar. 2018) that can be downloaded 
+[here](https://evlab.mit.edu/sites/default/files/documents/index2.html). Once the data for each subject is downloaded,
+make sure to place the data for experiment #2 for each subject in the `data/raw/pereira` folder, if you want to repeat
+the processing steps from scratch. 
 
-```shell
-$ python3 cli.py --help
+The raw data should be organized as follows:
 ```
+- data
+  └── raw
+     └── pereira
+        ├── M02
+        │   └── data_384sentences.mat
+        ├── M04
+        │   └── data_384sentences.mat
+        ...
+```
+
+An easier alternative for the subsequential parts of the analyses is to directly use the 
+[preprocessed dataset in HuggingFace](https://huggingface.co/datasets/helena-balabin/pereira_fMRI_passages).
+
+### Analyses
+
+The key parts of the analyses can be replicated using the following CLI commands (note that some steps might require 
+previously preprocessed data):
+- **RSA**
+  ```shell
+    $ python3 cli.py perform-rsa
+  ```
+- **Neural encoding**
+  ```shell
+    $ python3 cli.py calculate-brain-scores-cv-wrapper 
+  ```
+- **Linguistic probing**
+  ```shell
+    $ python3 cli.py perform-rsa-text-permutations
+  ```
+Add the `--help` flag to see the available options for each command.
 
 ## 🚀 Installation
 
 The most recent code can be installed directly from GitHub using:
 
 ```bash
-$ git clone git@github.com:<TODO>/sentencefmricomparison.git
+$ git clone git@github.com:lcn-kul/sentencefmricomparison.git
 $ cd sentencefmricomparison
 $ pip install -e .
 ```
@@ -33,11 +71,14 @@ The code in this package is licensed under the MIT License.
 
 ### 📖 Citation
 
-TODO
+H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vandenberghe, and M.-F. Moens, “Investigating Neural Fit Approaches for 
+Sentence Embedding Model Paradigms,” To appear in Proceedings of the 24th European Conference on Artificial 
+Intelligence, Kraków, Poland: IOS Press, Oct. 2023.
 
 ### 💰 Funding
 
-TODO
+This research was supported by funding from the Research Foundation - Flanders (Fonds Wetenschappelijk Onderzoek, FWO) 
+grants 1154623N, 1247821N and from the European Research Council (ERC) under Grant Agreement No. 788506.
 
 ### 🍪 Cookiecutter
 
