@@ -159,9 +159,11 @@ def main():
 
     # SentEval prepare and batcher
     def prepare(params, samples):  # noqa
+        """Prepare the data."""
         return
 
     def batcher(params, batch, max_length=None):  # noqa
+        """Batch examples."""
         # Handle rare token encoding issues in the dataset
         if len(batch) >= 1 and len(batch[0]) >= 1 and isinstance(batch[0][0], bytes):
             batch = [[word.decode("utf-8") for word in s] for s in batch]

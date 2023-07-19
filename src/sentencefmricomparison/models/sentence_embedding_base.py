@@ -38,7 +38,7 @@ class SentenceEmbeddingModel:
         self,
         model_name: str = SENTENCE_EMBED_DEFAULT_EN,
         distance_measure: Callable = PAIRWISE_DISTANCES["cosine"],
-        pooling_strategy: str = POOLING_STRATEGIES["avg"],
+        pooling_strategy: Callable = POOLING_STRATEGIES["avg"],  # type: ignore
         inference_batch_size: int = INFERENCE_BATCH_SIZE,
         gpt3_embed_path: str = GPT3_EMBEDS_PATH,
     ):
@@ -52,7 +52,7 @@ class SentenceEmbeddingModel:
         :param distance_measure: Similarity measure used for pairwise similairties in this model
         :type distance_measure: Callable
         :param pooling_strategy: Pooling strategy used to obtain sentence embeddings from the token embeddings
-        :type pooling_strategy: str
+        :type pooling_strategy: Callable
         :param inference_batch_size: Batch size used during inference (obtaining sentence embeddings)
         :type inference_batch_size: int
         :param gpt3_embed_path: Path to the precomputed GPT-3 embeddings (only relevant to GPT-3), defaults to None
@@ -102,7 +102,7 @@ class SentenceEmbeddingModel:
         # Add a pseudo padding token to GPT2 (it's only needed to ensure a consistent output shape and it's
         # disregarded when averaging token embeddings)
         if "gpt2" in self.model_name:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.tokenizer.pad_token = self.tokenizer.eos_token  # type: ignore
 
         self.pooling_stategy = pooling_strategy
         self.distance_measure = distance_measure
@@ -131,21 +131,21 @@ class SentenceEmbeddingModel:
                     batch,
                     padding="max_length",
                     truncation=True,
-                    max_length=self.model.config.max_length,
+                    max_length=self.model.config.max_length,  # type: ignore
                     return_tensors="pt",
                 )
                 # Place the batch on the GPU if possible (if the model is on the GPU)
-                inputs = inputs.to(self.model.device)
+                inputs = inputs.to(self.model.device)  # type: ignore
                 with torch.no_grad():
                     output = self.pooling_stategy(
-                        self.model(**inputs), inputs["attention_mask"]
+                        self.model(**inputs), inputs["attention_mask"]  # type: ignore
                     ).to("cpu")
             else:
                 # Use the SentenceTransformer/SkipThoughts syntax if there is no tokenizer
                 with torch.no_grad():
                     if "sentence-transformers" in self.model_name:
                         output = self.pooling_stategy(
-                            self.model.encode(
+                            self.model.encode(  # type: ignore
                                 batch,
                                 output_value="token_embeddings",
                                 convert_to_numpy=False,
@@ -153,7 +153,7 @@ class SentenceEmbeddingModel:
                         ).to("cpu")
                     # SkipThoughts
                     elif self.model_name == "skipthoughts":
-                        output = torch.from_numpy(self.model.encode(batch))
+                        output = torch.from_numpy(self.model.encode(batch))  # type: ignore
                     # GPT-3
                     else:
                         # Use the pre-computed embeddings for GPT-3

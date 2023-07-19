@@ -55,7 +55,7 @@ def generate_indices(
     """
     # Load the right field from the MATLAB file
     meta_data = data["meta"][0][0][11][0]
-    roi_indices = {name: [] for name in ROI_INDICES.keys()}
+    roi_indices: Dict = {name: [] for name in ROI_INDICES.keys()}
 
     # Extract the right indices to retrieve the right subset of voxels for each language network
     for name, idx in ROI_INDICES.items():

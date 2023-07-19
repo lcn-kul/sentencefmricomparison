@@ -36,7 +36,7 @@ def mean_pooling(
             0
         ]  # First element of model_output contains all token embeddings
         input_mask_expanded = (
-            attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+            attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()  # type: ignore
         )
         return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
             input_mask_expanded.sum(1), min=1e-9
@@ -197,6 +197,7 @@ def _vectorize_statistic(statistic):
     # This is a little cleaner than np.nditer at the expense of some data copying: concatenate samples together,
     # then use np.apply_along_axis
     def stat_nd(*data, axis=0):
+        """Broadcast the samples and apply the statistic."""
         lengths = [sample.shape[axis] for sample in data]
         split_indices = np.cumsum(lengths)[:-1]
         z = _broadcast_concatenate(data, axis)
@@ -207,6 +208,7 @@ def _vectorize_statistic(statistic):
         z = np.moveaxis(z, axis, 0)
 
         def stat_1d(z):  # noqa
+            """Apply the statistic to a 1-D array of concatenated samples."""
             data = np.split(z, split_indices)  # noqa
             return statistic(*data)
 
@@ -231,12 +233,14 @@ def _all_partitions_concatenated(
     """
 
     def all_partitions(z, n):  # noqa
+        """Generate all partitions of a set into two subsets of given sizes."""
         for c in combinations(z, n):
             x0 = set(c)
             x1 = z - x0
             yield [x0, x1]
 
     def all_partitions_n(z, ns):  # noqa
+        """Generate all partitions of a set into subsets of given sizes."""
         if len(ns) == 0:
             yield [z]
             return
@@ -245,7 +249,7 @@ def _all_partitions_concatenated(
                 yield c[0:1] + d
 
     z = set(range(np.sum(ns)))
-    for partitioning in all_partitions_n(z, ns[:]):
+    for partitioning in all_partitions_n(z, ns[:]):  # type: ignore
         x = np.concatenate([list(partition) for partition in partitioning]).astype(int)
         yield x
 
@@ -394,6 +398,7 @@ def _calculate_null_samples(data, statistic, n_permutations, batch, random_state
     # (Of course, the user's statistic doesn't know what we've done here,
     # so we need to pass it what it's expecting.)
     def statistic_wrapped(*data, axis):  # noqa
+        """Wrap `statistic` to swap the first two axes."""
         data = np.swapaxes(data, 0, -1)  # noqa
         if n_samples == 1:
             data = data[0:1]  # noqa
@@ -537,16 +542,19 @@ def permutation_test(
     gamma = np.maximum(eps, np.abs(eps * observed))
 
     def less(null_distribution, observed):  # noqa
+        """Calculate p-values for the one-sided test."""
         cmps = null_distribution <= observed + gamma
         pvalues = (cmps.sum(axis=0) + adjustment) / (n_resamples + adjustment)  # noqa
         return pvalues
 
     def greater(null_distribution, observed):  # noqa
+        """Calculate p-values for the one-sided test."""
         cmps = null_distribution >= observed - gamma
         pvalues = (cmps.sum(axis=0) + adjustment) / (n_resamples + adjustment)  # noqa
         return pvalues
 
     def two_sided(null_distribution, observed):  # noqa
+        """Calculate p-values for the two-sided test."""
         pvalues_less = less(null_distribution, observed)
         pvalues_greater = greater(null_distribution, observed)
         pvalues = np.minimum(pvalues_less, pvalues_greater) * 2

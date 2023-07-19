@@ -24,7 +24,7 @@ from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR
 @click.option("--model-wise", is_flag=True, default=False)
 @click.option("--sig", type=float, default=0.05)
 def perform_anova_tukey(
-    input_path: os.path.join(
+    input_path: str = os.path.join(
         PEREIRA_OUTPUT_DIR, "subj_rsa_correlations_spearman_cosine_paragraphs.csv"  # noqa
     ),
     model_wise: bool = False,

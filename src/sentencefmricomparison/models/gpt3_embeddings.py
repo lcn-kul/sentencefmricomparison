@@ -2,7 +2,7 @@
 import os
 import pickle as pkl  # noqa
 import time
-from typing import List
+from typing import List, Optional
 
 import click
 import openai
@@ -31,7 +31,7 @@ from sentencefmricomparison.constants import (
 def generate_gpt3_embeddings(
     column_names: List[str] = ["center_sents", "paragraphs", "permuted_sents"],  # noqa
     pereira_input_file: str = PEREIRA_PERMUTED_SENTENCES_PATH,
-    openai_api_key: str = OPENAI_API_KEY,
+    openai_api_key: Optional[str] = OPENAI_API_KEY,
     openai_model: str = OPENAI_DEFAULT_MODEL,
     output_dir: str = PEREIRA_OUTPUT_DIR,
 ):

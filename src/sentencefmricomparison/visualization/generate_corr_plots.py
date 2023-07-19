@@ -410,7 +410,7 @@ def plot_corr_neural_enc_embed_size(
             )
             embed_size = embed[0].shape[0]
         except IndexError:
-            embed_size = model.model.config.n_embd
+            embed_size = model.model.config.n_embd  # type: ignore
         neural_enc_df.loc[model_name, "embed_size"] = embed_size
 
     # 2. Melt all different ROI scores

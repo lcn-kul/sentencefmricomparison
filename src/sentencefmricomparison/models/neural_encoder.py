@@ -179,7 +179,7 @@ def calculate_brain_scores_cv(
     if "pearson" in scoring:
         scoring_func = pearson_scoring
     # 5. Initialize the results
-    results = []
+    res = []
 
     # 6. Get the scores for each model based on testing on each subject in a cross-validated manner
     for model, sents_encoded in tqdm(
@@ -236,12 +236,12 @@ def calculate_brain_scores_cv(
                 subj_results.append(pd.DataFrame({"all": [brain_score]}))
 
         # 6.2 Calculate the average across all subjects for each sentence embedding model, append to the overall results
-        results.append(
+        res.append(
             pd.DataFrame(pd.concat(subj_results).mean(axis=0), columns=[model]).T
         )
 
     # Concatenate into an overall results dataframe
-    results = pd.DataFrame(pd.concat(results))
+    results = pd.DataFrame(pd.concat(res))
     # And add a mean column if the scores are calculated region-wise
     if region_based:
         results["mean"] = results.mean(axis=1)
