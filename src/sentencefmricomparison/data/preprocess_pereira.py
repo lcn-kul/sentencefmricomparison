@@ -6,17 +6,21 @@ Code is partially based on Oota et al. 2022 (https://tinyurl.com/langTask).
 # Imports
 import logging
 import os
-import pickle
+import pickle  # noqa
 from glob import glob
 from typing import Dict, List
 
 import click
 import numpy as np
 import pandas as pd
-from datasets import Dataset
 from scipy.io import loadmat
 
-from sentencefmricomparison.constants import PEREIRA_EXAMPLE_FILE, PEREIRA_INPUT_DIR, PEREIRA_RAW_DIR
+from datasets import Dataset
+from sentencefmricomparison.constants import (
+    PEREIRA_EXAMPLE_FILE,
+    PEREIRA_INPUT_DIR,
+    PEREIRA_RAW_DIR,
+)
 
 # Initialize logger
 logging.basicConfig()
@@ -25,15 +29,15 @@ logger.setLevel(logging.INFO)
 
 # These indices are based on the code from Oota et al. 2022 (https://tinyurl.com/langTask)
 ROI_INDICES = {
-    'language_lh': 7,
-    'language_rh': 8,
-    'vision_body': 9,
-    'vision_face': 10,
-    'vision_object': 11,
-    'vision_scene': 12,
-    'vision': 13,
-    'dmn': 6,
-    'task': 5,
+    "language_lh": 7,
+    "language_rh": 8,
+    "vision_body": 9,
+    "vision_face": 10,
+    "vision_object": 11,
+    "vision_scene": 12,
+    "vision": 13,
+    "dmn": 6,
+    "task": 5,
 }
 
 
@@ -50,7 +54,7 @@ def generate_indices(
     :rtype: Dict
     """
     # Load the right field from the MATLAB file
-    meta_data = data['meta'][0][0][11][0]
+    meta_data = data["meta"][0][0][11][0]
     roi_indices = {name: [] for name in ROI_INDICES.keys()}
 
     # Extract the right indices to retrieve the right subset of voxels for each language network
@@ -76,9 +80,9 @@ def get_subject_data(
     Based on Oota et al. 2022 (https://tinyurl.com/langTask).
 
     :param pereira_input_dir: Path to the base directory with the raw Pereira data
-    :type pereira_input_dir: str, defaults to PEREIRA_RAW_DIR
+    :type pereira_input_dir: str
     :param pereira_output_dir: Path where the processed data should be saved
-    :type pereira_output_dir: str, defaults to PEREIRA_INPUT_DIR
+    :type pereira_output_dir: str
     :param passage_wise_processing: Whether to get the brain activation for passages instead of single sentences,
         defaults to False
     :type passage_wise_processing: bool
@@ -90,14 +94,16 @@ def get_subject_data(
     all_fmri = []
 
     # Get the correct key/file name depending on whether to preprocess sentences or paragraphs
-    examples_key = "examples_passages" if passage_wise_processing else "examples_passagesentences"
+    examples_key = (
+        "examples_passages" if passage_wise_processing else "examples_passagesentences"
+    )
     file_name_suffix = "_passages" if passage_wise_processing else ""
 
     # Retrieve the preprocessed images for each subject
     for subject_path in all_subject_paths:
         logger.info(f"Processing {subject_path.split('/')[-1]}")
         # Load the MATLAB file into python
-        data_pic = loadmat(os.path.join(subject_path, 'data_384sentences.mat'))
+        data_pic = loadmat(os.path.join(subject_path, "data_384sentences.mat"))
         # Get the right indices
         roi_indices = generate_indices(data_pic)
 
@@ -112,15 +118,24 @@ def get_subject_data(
         # Save as pickled dictionary for each subject, together with the sentences or paragraphs
         if passage_wise_processing:
             fmri["paragraphs"] = np.array(
-                [" ".join(sent[0][0] for sent in data_pic["keySentences"][i:i + 4]) for i in
-                 range(0, len(data_pic["keySentences"]), 4)]
+                [
+                    " ".join(sent[0][0] for sent in data_pic["keySentences"][i: i + 4])
+                    for i in range(0, len(data_pic["keySentences"]), 4)
+                ]
             )
         else:
             fmri["sentences"] = np.array(
-                [data_pic["keySentences"][i][0][0] for i in range(len(data_pic["keySentences"]))]
+                [
+                    data_pic["keySentences"][i][0][0]
+                    for i in range(len(data_pic["keySentences"]))
+                ]
             )
         with open(
-            os.path.join(pereira_output_dir, subject_path.split("/")[-1] + file_name_suffix + "_fmri.pkl"), "wb",
+            os.path.join(
+                pereira_output_dir,
+                subject_path.split("/")[-1] + file_name_suffix + "_fmri.pkl",
+            ),
+            "wb",
         ) as handle:
             pickle.dump(fmri, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -158,15 +173,24 @@ def save_pereira_sentences(
     file_ending = "passages" if passage_wise_processing else "sentences"
 
     # Extract the sentences
-    sentences = [str(input_data["keySentences"][i][0]).strip("'[]") for i in range(len(input_data["keySentences"]))]
+    sentences = [
+        str(input_data["keySentences"][i][0]).strip("'[]")
+        for i in range(len(input_data["keySentences"]))
+    ]
 
     if passage_wise_processing:
-        sentences = [" ".join(str(sent) for sent in sentences[i: i + 4]) for i in range(0, len(sentences), 4)]
+        sentences = [
+            " ".join(str(sent) for sent in sentences[i: i + 4])
+            for i in range(0, len(sentences), 4)
+        ]
 
     sent_df = pd.DataFrame(sentences)
 
     # Save the sentences
-    sent_df.to_csv(os.path.join(output_dir, "sentences", "pereira_" + file_ending + ".csv"), index=False)
+    sent_df.to_csv(
+        os.path.join(output_dir, "sentences", "pereira_" + file_ending + ".csv"),
+        index=False,
+    )
 
     return sent_df
 
@@ -180,7 +204,7 @@ def convert_to_hf_dataset(
     push_to_hub: bool = False,
     passage_wise_processing: bool = False,
 ):
-    """Converts the preprocessed MRI data into a huggingface dataset and optionally pushes it to the hub.
+    """Convert the preprocessed MRI data into a huggingface dataset and optionally pushes it to the hub.
 
     Preliminaries: The original MATLAB file is preprocessed using the get_subject_data function and for pushing to the
     hub, it is assumed that you're logged in using 'huggingface-cli login'
@@ -203,15 +227,19 @@ def convert_to_hf_dataset(
 
     # Add the permuted sentences to the dataset as well
     if passage_wise_processing:
-        permuted_file = pd.read_csv(os.path.join(processed_mri_dir, "pereira_permuted_passages.csv"))
+        permuted_file = pd.read_csv(
+            os.path.join(processed_mri_dir, "pereira_permuted_passages.csv")
+        )
 
     # Load all the MRI data from the files
     mri_files = []
     for file in mri_file_names:
         with open(file, "rb") as f:
-            mri_data_dict = pickle.load(f)
+            mri_data_dict = pickle.load(f)  # noqa
             if passage_wise_processing:
-                mri_data_dict["permuted_paragraphs"] = permuted_file["permuted_sents"].tolist()
+                mri_data_dict["permuted_paragraphs"] = permuted_file[
+                    "permuted_sents"
+                ].tolist()
             mri_files.append(mri_data_dict)
 
     # Convert into a huggingface dataset
@@ -219,7 +247,11 @@ def convert_to_hf_dataset(
 
     # Optional: Push to the Hub
     if push_to_hub:
-        dataset.push_to_hub("pereira_fMRI_passages" if passage_wise_processing else "pereira_fMRI_sentences")
+        dataset.push_to_hub(
+            "pereira_fMRI_passages"
+            if passage_wise_processing
+            else "pereira_fMRI_sentences"
+        )
 
     return
 
@@ -249,39 +281,49 @@ def generate_permuted_passages(
 
     # Extract the sentences from the Pereira input file
     data_pic = loadmat(pereira_input_file)
-    sentences = [data_pic["keySentences"][i][0][0] for i in range(len(data_pic["keySentences"]))]
+    sentences = [
+        data_pic["keySentences"][i][0][0] for i in range(len(data_pic["keySentences"]))
+    ]
     # Only take the middle two sentences
     permuted_passages_df["center_sents"] = [
-        " ".join(sent for sent in sentences[i + 1:i + 3]) for i in range(0, len(sentences), 4)
+        " ".join(sent for sent in sentences[i + 1: i + 3])
+        for i in range(0, len(sentences), 4)
     ]
     # Create the original paragraphs with correct first and last sentences
     permuted_passages_df["paragraphs"] = [
-        " ".join(sent for sent in sentences[i:i + 4]) for i in range(0, len(sentences), 4)
+        " ".join(sent for sent in sentences[i: i + 4])
+        for i in range(0, len(sentences), 4)
     ]
     # Create paragraphs in which the two middle sentences are paired with random first and last sentences
     permuted_sents = []
     for i in range(0, len(sentences), 4):
         # Get the middle two sentences
-        middle = " ".join(sent for sent in sentences[i + 1:i + 3])
+        middle = " ".join(sent for sent in sentences[i + 1: i + 3])
         # Get a random first sentence and a random last sentence
-        rand_idx_front = np.random.choice([j for j in range(0, len(sentences), 4) if j != i], size=1)[0]
-        rand_idx_last = np.random.choice([j + 3 for j in range(0, len(sentences), 4) if j != i], size=1)[0]
-        permuted = " ".join([sentences[rand_idx_front], middle, sentences[rand_idx_last]])
+        rand_idx_front = np.random.choice(
+            [j for j in range(0, len(sentences), 4) if j != i], size=1
+        )[0]
+        rand_idx_last = np.random.choice(
+            [j + 3 for j in range(0, len(sentences), 4) if j != i], size=1
+        )[0]
+        permuted = " ".join(
+            [sentences[rand_idx_front], middle, sentences[rand_idx_last]]
+        )
         permuted_sents.append(permuted)
 
     permuted_passages_df["permuted_sents"] = permuted_sents
 
     # Save to csv
-    permuted_passages_df.to_csv(os.path.join(output_dir, "pereira_permuted_passages.csv"), index=False)
+    permuted_passages_df.to_csv(
+        os.path.join(output_dir, "pereira_permuted_passages.csv"), index=False
+    )
 
     return permuted_passages_df
 
 
 @click.group()
 def cli() -> None:
-    """
-    This is a preprocessing script for the preprocessed Pereira MATLAB files.
-    """
+    """Preprocess the Pereira MATLAB files."""
 
 
 if __name__ == "__main__":

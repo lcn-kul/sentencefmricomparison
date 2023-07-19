@@ -2,13 +2,13 @@
 
 # Imports
 import os
-import pickle5
 from glob import glob
 from typing import List, Union
 
 import click
 import numpy as np
 import pandas as pd
+import pickle  # noqa
 from loguru import logger
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import pairwise_distances
@@ -18,11 +18,16 @@ from sentencefmricomparison.constants import (
     PEREIRA_INPUT_DIR,
     PEREIRA_OUTPUT_DIR,
     PEREIRA_PERMUTED_SENTENCES_PATH,
-    SENT_EMBED_MODEL_LIST_EN, SENT_EMBED_MODEL_PARADIGMS,
+    SENT_EMBED_MODEL_LIST_EN,
+    SENT_EMBED_MODEL_PARADIGMS,
 )
 from sentencefmricomparison.data.preprocess_pereira import ROI_INDICES
 from sentencefmricomparison.models.sentence_embedding_base import SentenceEmbeddingModel
-from sentencefmricomparison.utils import CORRELATION_MEASURES, PAIRWISE_DISTANCES, permutation_test
+from sentencefmricomparison.utils import (
+    CORRELATION_MEASURES,
+    PAIRWISE_DISTANCES,
+    permutation_test,
+)
 
 
 def get_sim_vector(
@@ -49,7 +54,11 @@ def get_sim_vector(
     default=SENT_EMBED_MODEL_LIST_EN,
 )
 @click.option("--pairwise-metric", type=str, default="cosine")
-@click.option("--correlation-metric", type=click.Choice(CORRELATION_MEASURES.keys()), default="spearman")
+@click.option(
+    "--correlation-metric",
+    type=click.Choice(CORRELATION_MEASURES.keys()),
+    default="spearman",
+)
 @click.option("--n-resamples-permutation", type=int, default=10000)
 @click.option("--num-sentences", type=int, default=-1)
 @click.option("--alpha", type=float, default=0.05)
@@ -62,7 +71,7 @@ def perform_rsa(
     pairwise_metric: str = "cosine",
     correlation_metric: str = "spearman",
     n_resamples_permutation: int = 10000,
-    num_sentences: str = -1,
+    num_sentences: int = -1,
     alpha: float = 0.05,
     passage_wise_processing: bool = True,
     individual_correlations: bool = False,
@@ -79,15 +88,14 @@ def perform_rsa(
     :param correlation_metric: Metric used for calculating the correlation across ROIs and LMs
     :type correlation_metric: str
     :param n_resamples_permutation: Number of permutations for the permutation test that measures statistical
-    significance for the
-        calculated correlations
+        significance for the calculated correlations
     :type n_resamples_permutation: int
     :param num_sentences: Number of sentences used in the overall analysis, defaults to -1 (all)
     :type num_sentences: int
     :param alpha: Alpha level for the CIs based on permutation testing, defaults to 0.05
     :type alpha: float
     :param passage_wise_processing: Whether to process passages instead of sentences, defaults to True
-    :type passage_wise_processing: str
+    :type passage_wise_processing: bool
     :param individual_correlations: Whether to also calculate correlations for individual subjects, defaults to False
     :type individual_correlations: bool
     :param output_dir: Output directory where the DataFrame with all correlations should be saved to
@@ -104,7 +112,9 @@ def perform_rsa(
         all_subject_files = [i for i in all_subject_files if "passages" in i]
     else:
         all_subject_files = [i for i in all_subject_files if "passages" not in i]
-    all_subject_ids = [file.split("/")[-1].replace("_fmri.pkl", "") for file in all_subject_files]
+    all_subject_ids = [
+        file.split("/")[-1].replace("_fmri.pkl", "") for file in all_subject_files
+    ]
     all_subject_data = {}
 
     # Iterate through the subjects
@@ -112,9 +122,11 @@ def perform_rsa(
         logger.info(f"Processing subject {subject_id}")
 
         with open(file, "rb") as f:
-            subject_data = pickle5.load(f)
+            subject_data = pickle.load(f)  # noqa
 
-        subject_data_no_sent = {i: subject_data[i][:num_sentences] for i in subject_data if i != text_key}
+        subject_data_no_sent = {
+            i: subject_data[i][:num_sentences] for i in subject_data if i != text_key
+        }
 
         # Iterate through all ROIs and get all fMRI data from all ROIs
         all_subject_data[subject_id] = {
@@ -145,20 +157,36 @@ def perform_rsa(
 
         # Create the dissimilarity matrix for the sentence models
         sentences_dissim_mat = pd.DataFrame(
-            pairwise_distances(encoded_sentences, encoded_sentences, metric=pairwise_metric),
+            pairwise_distances(
+                encoded_sentences, encoded_sentences, metric=pairwise_metric
+            ),
         )
         sent_rdms[sent_model_name] = sentences_dissim_mat
 
     # Get a vectorized representation of the similarity matrices
-    sent_rdm_vectors = [get_sim_vector(sent_rdms[sent_model_name]) for sent_model_name in sent_model_names]
+    sent_rdm_vectors = [
+        get_sim_vector(sent_rdms[sent_model_name])
+        for sent_model_name in sent_model_names
+    ]
 
     # Generate a result matrix for all ROIs and all sent embed models
-    result_df = pd.DataFrame(index=sent_model_names)  # columns=sorted(ROI_INDICES.keys())
+    result_df = pd.DataFrame(
+        index=sent_model_names
+    )  # columns=sorted(ROI_INDICES.keys())
 
     # Don't include the vision subnetworks and deal differently with language
     rois = {
-        k for k in ROI_INDICES.keys()
-        if k not in ["vision_object", "vision_face", "vision_scene", "vision_body", "language_lh", "language_rh"]
+        k
+        for k in ROI_INDICES.keys()
+        if k
+        not in [
+            "vision_object",
+            "vision_face",
+            "vision_scene",
+            "vision_body",
+            "language_lh",
+            "language_rh",
+        ]
     }
     rois.add("language")
 
@@ -172,10 +200,14 @@ def perform_rsa(
         if roi == "language":
             # Average across subjects and left/right in this case
             roi_specific_sim_mat = [
-                all_subject_data[subj][r] for r in ["language_lh", "language_rh"] for subj in all_subject_ids
+                all_subject_data[subj][r]
+                for r in ["language_lh", "language_rh"]
+                for subj in all_subject_ids
             ]
         else:
-            roi_specific_sim_mat = [all_subject_data[subj][roi] for subj in all_subject_ids]
+            roi_specific_sim_mat = [
+                all_subject_data[subj][roi] for subj in all_subject_ids
+            ]
         # Average correlation matrices across all subjects for a given ROI
         av_roi_specific_sim_mat = np.mean(roi_specific_sim_mat, axis=0)
         av_roi_specific_sim_vector = get_sim_vector(av_roi_specific_sim_mat)
@@ -185,7 +217,7 @@ def perform_rsa(
             if roi == "language":
                 # Average rh and lh in the case of language
                 roi_specific_sim_mat = [
-                    roi_specific_sim_mat[i] + roi_specific_sim_mat[i+1] / 2
+                    roi_specific_sim_mat[i] + roi_specific_sim_mat[i + 1] / 2
                     for i in range(0, len(roi_specific_sim_mat), 2)
                 ]
             ind_corrs = [
@@ -196,15 +228,19 @@ def perform_rsa(
                 for subj_roi_specific_sim_mat in roi_specific_sim_mat
                 for sent_rdm_vector in sent_rdm_vectors
             ]
-            temp_df = pd.DataFrame({
-                "correlation": ind_corrs,
-                "model": np.repeat([sent_model_names], len(roi_specific_sim_mat)),
-                "paradigm": np.repeat(
-                    list(map(SENT_EMBED_MODEL_PARADIGMS.get, sent_model_names)),
-                    len(roi_specific_sim_mat),
-                ),
-                "roi": np.repeat([roi], len(sent_model_names)*len(roi_specific_sim_mat)),
-            })
+            temp_df = pd.DataFrame(
+                {
+                    "correlation": ind_corrs,
+                    "model": np.repeat([sent_model_names], len(roi_specific_sim_mat)),
+                    "paradigm": np.repeat(
+                        list(map(SENT_EMBED_MODEL_PARADIGMS.get, sent_model_names)),
+                        len(roi_specific_sim_mat),
+                    ),
+                    "roi": np.repeat(
+                        [roi], len(sent_model_names) * len(roi_specific_sim_mat)
+                    ),
+                }
+            )
             ind_corr_df = pd.concat([ind_corr_df, temp_df])
 
         # Spearman correlation to the average ROI correlation matrix for each sent model
@@ -223,7 +259,7 @@ def perform_rsa(
                 permutation_type="pairings",
                 statistic=lambda data: CORRELATION_MEASURES[correlation_metric](
                     data,
-                    av_roi_specific_sim_vector,
+                    av_roi_specific_sim_vector,  # noqa
                 )[0],
                 n_resamples=n_resamples_permutation,
                 alternative="greater",
@@ -232,34 +268,54 @@ def perform_rsa(
         ]
         result_df.loc[:, roi + " p-value"] = [p.pvalue for p in perm_tests]
         result_df.loc[:, roi + " CI"] = [
-            str(np.percentile(p.null_distribution, [alpha/2 * 100, (1 - alpha/2) * 100]))
+            str(
+                np.percentile(
+                    p.null_distribution, [alpha / 2 * 100, (1 - alpha / 2) * 100]
+                )
+            )
             for p in perm_tests
         ]
 
     # Add an average column to average the correlations from all ROIs
-    result_df["mean"] = result_df[[i for i in result_df.columns if "p-value" not in i and "CI" not in i]].mean(axis=1)
+    result_df["mean"] = result_df[
+        [i for i in result_df.columns if "p-value" not in i and "CI" not in i]
+    ].mean(axis=1)
 
-    logger.info(f"Correlations between LMs and ROIs")
+    logger.info("Correlations between LMs and ROIs")
     logger.info(result_df)
     # Save the result
     result_df.to_csv(
-        os.path.join(output_dir, f"rsa_correlations_{correlation_metric}_{pairwise_metric}_{text_key}.csv")
+        os.path.join(
+            output_dir,
+            f"rsa_correlations_{correlation_metric}_{pairwise_metric}_{text_key}.csv",
+        )
     )
 
     # Also save individual correlation results if specified
     if individual_correlations:
         ind_corr_df.to_csv(
-            os.path.join(output_dir, f"subj_rsa_correlations_{correlation_metric}_{pairwise_metric}_{text_key}.csv")
+            os.path.join(
+                output_dir,
+                f"subj_rsa_correlations_{correlation_metric}_{pairwise_metric}_{text_key}.csv",
+            )
         )
 
     return result_df
 
 
 @click.command()
-@click.option("--permut-paragraph-input-path", type=str, default=PEREIRA_PERMUTED_SENTENCES_PATH)
+@click.option(
+    "--permut-paragraph-input-path", type=str, default=PEREIRA_PERMUTED_SENTENCES_PATH
+)
 @click.option("--sent-models", multiple=True, default=SENT_EMBED_MODEL_LIST_EN)
-@click.option("--pairwise-metric", type=click.Choice(PAIRWISE_DISTANCES.keys()), default="cosine")
-@click.option("--correlation-metric", type=click.Choice(CORRELATION_MEASURES.keys()), default="spearman")
+@click.option(
+    "--pairwise-metric", type=click.Choice(PAIRWISE_DISTANCES.keys()), default="cosine"
+)
+@click.option(
+    "--correlation-metric",
+    type=click.Choice(CORRELATION_MEASURES.keys()),
+    default="spearman",
+)
 @click.option("--n-resamples", type=int, default=10000)
 @click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
 def perform_rsa_text_permutations(
@@ -303,7 +359,9 @@ def perform_rsa_text_permutations(
     results = pd.DataFrame(index=["paragraphs", "permuted_sents"])
 
     # Iterate through each sentence embedding model
-    for model_name in tqdm(sent_models, desc="Performing RSA for all sentence embedding models"):
+    for model_name in tqdm(
+        sent_models, desc="Performing RSA for all sentence embedding models"
+    ):
         # Create the model-specific results and p-value dictionary
         res = {}
         p_value = {}
@@ -324,14 +382,16 @@ def perform_rsa_text_permutations(
         for hypothesis in ["paragraphs", "permuted_sents"]:
             hyp_rdm = sent_embed_model.generate_rdm(permut_paragraphs[hypothesis])
             hyp_model = get_sim_vector(hyp_rdm)
-            res[hypothesis] = CORRELATION_MEASURES[correlation_metric](ref_model, hyp_model)[0]
+            res[hypothesis] = CORRELATION_MEASURES[correlation_metric](
+                ref_model, hyp_model
+            )[0]
             # Calculate the significance of the correlation based on a permutation test
             p_value[hypothesis] = permutation_test(
                 ref_model.reshape(1, -1),
                 permutation_type="pairings",
                 statistic=lambda data: CORRELATION_MEASURES[correlation_metric](
                     data,
-                    hyp_model,
+                    hyp_model,  # noqa
                 )[0],
                 n_resamples=n_resamples,
                 alternative="greater",
@@ -349,9 +409,7 @@ def perform_rsa_text_permutations(
 
 @click.group()
 def cli() -> None:
-    """
-    This script performs a preliminary simple correlation analysis between fMRI data and LMs using the Pereira dataset.
-    """
+    """Perform a preliminary simple correlation analysis between fMRI data and LMs using the Pereira dataset."""
 
 
 if __name__ == "__main__":

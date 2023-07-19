@@ -17,12 +17,16 @@ from sentencefmricomparison.constants import PEREIRA_OUTPUT_DIR
 @click.option(
     "--input-path",
     type=str,
-    default=os.path.join(PEREIRA_OUTPUT_DIR, "subj_rsa_correlations_spearman_cosine_paragraphs.csv"),
+    default=os.path.join(
+        PEREIRA_OUTPUT_DIR, "subj_rsa_correlations_spearman_cosine_paragraphs.csv"
+    ),
 )
 @click.option("--model-wise", is_flag=True, default=False)
 @click.option("--sig", type=float, default=0.05)
 def perform_anova_tukey(
-    input_path: os.path.join(PEREIRA_OUTPUT_DIR, "subj_rsa_correlations_spearman_cosine_paragraphs.csv"),
+    input_path: os.path.join(
+        PEREIRA_OUTPUT_DIR, "subj_rsa_correlations_spearman_cosine_paragraphs.csv"  # noqa
+    ),
     model_wise: bool = False,
     sig: float = 0.05,
 ):
@@ -44,7 +48,10 @@ def perform_anova_tukey(
     for roi in subj_corr["roi"].unique():
         # 2. Perform ANOVA to see whether the means across models or paradigms are significantly different
         roi_subj_corr = subj_corr[subj_corr["roi"] == roi]
-        groups = [np.array(roi_subj_corr[roi_subj_corr[col] == i]["correlation"]) for i in roi_subj_corr[col].unique()]
+        groups = [
+            np.array(roi_subj_corr[roi_subj_corr[col] == i]["correlation"])
+            for i in roi_subj_corr[col].unique()
+        ]
         anova = f_oneway(*groups)
         pvalue = anova.pvalue
         logger.info(f"{roi}: {pvalue}")
@@ -64,9 +71,7 @@ def perform_anova_tukey(
 
 @click.group()
 def cli() -> None:
-    """
-    Additional functions to analyze the RSA results.
-    """
+    """Analyze the RSA results."""
 
 
 if __name__ == "__main__":

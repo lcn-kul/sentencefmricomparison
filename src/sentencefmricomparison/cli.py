@@ -8,25 +8,21 @@ from sentencefmricomparison.data.preprocess_pereira import (
     get_subject_data,
     save_pereira_sentences,
 )
-from sentencefmricomparison.models.gpt3_embeddings import (
-    generate_gpt3_embeddings,
-)
+from sentencefmricomparison.models.gpt3_embeddings import generate_gpt3_embeddings
 from sentencefmricomparison.models.neural_encoder import (
     calculate_brain_scores_cv_wrapper,
     hpo_neural_encoder,
 )
-from sentencefmricomparison.rsa.rsa_corr_analysis import (
-    perform_anova_tukey,
-)
+from sentencefmricomparison.rsa.rsa_corr_analysis import perform_anova_tukey
 from sentencefmricomparison.rsa.rsa_pereira import (
     perform_rsa,
     perform_rsa_text_permutations,
 )
 from sentencefmricomparison.visualization.generate_corr_plots import (
+    plot_corr_neural_enc_embed_size,
     plot_corr_rsa_neural_enc,
     plot_corr_rsa_sent_eval,
     plot_correlogram_sent_models,
-    plot_corr_neural_enc_embed_size,
 )
 from sentencefmricomparison.visualization.visualize_brain_networks import (
     visualize_brain_networks,
@@ -35,9 +31,7 @@ from sentencefmricomparison.visualization.visualize_brain_networks import (
 
 @click.group()
 def cli() -> None:
-    """
-    This is the command line interface for sentencefmricomparison.
-    """
+    """Command line interface for sentencefmricomparison."""  # noqa
 
 
 if __name__ == "__main__":

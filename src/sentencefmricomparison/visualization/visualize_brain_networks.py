@@ -6,8 +6,8 @@ from typing import List
 
 import click
 import matplotlib.pyplot as plt
-import nibabel as nib
 from matplotlib import colors
+import nibabel as nib
 from nilearn import image
 from nilearn.plotting import plot_roi
 
@@ -21,7 +21,11 @@ NETWORK_NAMES = {
 }
 
 
-@click.option("--network-colors", multiple=True, default=["#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3"])
+@click.option(
+    "--network-colors",
+    multiple=True,
+    default=["#66C2A5", "#FC8D62", "#8DA0CB", "#E78AC3"],
+)
 @click.option("--network-nifti-path", type=str, default=NETWORK_NIFTI_DIR)
 @click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
 @click.command()
@@ -41,11 +45,13 @@ def visualize_brain_networks(
     :return: -
     :rtype: -
     """
-    fig, axes = plt.subplots(2, 2, figsize=(48, 24), gridspec_kw={'wspace': 0.1, 'hspace': -0.2})
+    fig, axes = plt.subplots(
+        2, 2, figsize=(48, 24), gridspec_kw={"wspace": 0.1, "hspace": -0.2}
+    )
     for ax in axes.flatten():
         # Hide grid lines
         ax.grid(False)
-        ax.axis('off')
+        ax.axis("off")
         # Hide axes ticks
         ax.set_xticks([])
         ax.set_yticks([])
@@ -54,12 +60,20 @@ def visualize_brain_networks(
     for i, (network, color) in enumerate(zip(NETWORK_NAMES.keys(), network_colors)):
         if network == "language":
             # In the case of language, plot left and right hemispheres together by combining the images
-            img_rh = image.smooth_img(os.path.join(network_nifti_path, f'{network}RH.nii'), fwhm=1)
-            img_lh = image.smooth_img(os.path.join(network_nifti_path, f'{network}LH.nii'), fwhm=1)
-            img = nib.Nifti1Image(dataobj=img_lh.dataobj + img_rh.dataobj, affine=img_lh.affine)
+            img_rh = image.smooth_img(
+                os.path.join(network_nifti_path, f"{network}RH.nii"), fwhm=1
+            )
+            img_lh = image.smooth_img(
+                os.path.join(network_nifti_path, f"{network}LH.nii"), fwhm=1
+            )
+            img = nib.Nifti1Image(
+                dataobj=img_lh.dataobj + img_rh.dataobj, affine=img_lh.affine
+            )
         else:
             # Load the network NIfTI files
-            img = image.smooth_img(os.path.join(network_nifti_path, f'{network}.nii'), fwhm=1)
+            img = image.smooth_img(
+                os.path.join(network_nifti_path, f"{network}.nii"), fwhm=1
+            )
 
         # Plot the brain network
         plot_roi(

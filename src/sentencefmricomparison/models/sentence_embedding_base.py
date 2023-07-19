@@ -1,13 +1,20 @@
 """Base class for sentence embedding paradigms/models that are used."""
 
 import os
+import pickle as pkl  # noqa
 from typing import Callable, Dict, List, Optional, Union
 
 import pandas as pd
-import pickle as pkl
 import torch
 from sentence_transformers import SentenceTransformer
-from transformers import AutoModel, AutoTokenizer, GPT2Config, GPT2Model, PreTrainedModel, PreTrainedTokenizer
+from transformers import (
+    AutoModel,
+    AutoTokenizer,
+    GPT2Config,
+    GPT2Model,
+    PreTrainedModel,
+    PreTrainedTokenizer,
+)
 
 from sentencefmricomparison.constants import (
     GPT3_EMBEDS_PATH,
@@ -44,10 +51,12 @@ class SentenceEmbeddingModel:
         :type model_name: str
         :param distance_measure: Similarity measure used for pairwise similairties in this model
         :type distance_measure: Callable
+        :param pooling_strategy: Pooling strategy used to obtain sentence embeddings from the token embeddings
+        :type pooling_strategy: str
         :param inference_batch_size: Batch size used during inference (obtaining sentence embeddings)
         :type inference_batch_size: int
         :param gpt3_embed_path: Path to the precomputed GPT-3 embeddings (only relevant to GPT-3), defaults to None
-        :type gpt3_embed_path: str, optional
+        :type gpt3_embed_path: str
         """
         # Specify the model type
         self.model_name = model_name
@@ -63,7 +72,7 @@ class SentenceEmbeddingModel:
             # For GPT-3, the "model" is just a dictionary of precomputed embeddings for all possible sentences in this
             # analysis
             with open(gpt3_embed_path, "rb") as f:
-                self.model = {k.strip(): v for k,v in pkl.load(f).items()}
+                self.model = {k.strip(): v for k, v in pkl.load(f).items()}  # noqa
         # Skip-Thoughts setup
         elif self.model_name == "skipthoughts":
             from skip_thoughts import configuration
@@ -74,8 +83,12 @@ class SentenceEmbeddingModel:
             self.model.load_model(
                 configuration.model_config(),
                 vocabulary_file=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "vocab.txt"),
-                embedding_matrix_file=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "embeddings.npy"),
-                checkpoint_path=os.path.join(SKIPTHOUGHTS_MODEL_DIR, "model.ckpt-501424"),
+                embedding_matrix_file=os.path.join(
+                    SKIPTHOUGHTS_MODEL_DIR, "embeddings.npy"
+                ),
+                checkpoint_path=os.path.join(
+                    SKIPTHOUGHTS_MODEL_DIR, "model.ckpt-501424"
+                ),
             )
         # Setup for a random GPT-2 based baseline
         elif self.model_name == "gpt2-random":
@@ -126,7 +139,7 @@ class SentenceEmbeddingModel:
                 with torch.no_grad():
                     output = self.pooling_stategy(
                         self.model(**inputs), inputs["attention_mask"]
-                    ).to('cpu')
+                    ).to("cpu")
             else:
                 # Use the SentenceTransformer/SkipThoughts syntax if there is no tokenizer
                 with torch.no_grad():
@@ -137,7 +150,7 @@ class SentenceEmbeddingModel:
                                 output_value="token_embeddings",
                                 convert_to_numpy=False,
                             )
-                        ).to('cpu')
+                        ).to("cpu")
                     # SkipThoughts
                     elif self.model_name == "skipthoughts":
                         output = torch.from_numpy(self.model.encode(batch))

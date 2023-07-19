@@ -1,14 +1,12 @@
 """Generate frozen/fixed embeddings for GPT-3 with OpenAI's API."""
 import os
-# Note that you might want to use a different venv for this script (python 3.10 rather than 3.6)
-# Imports
-from typing import List
+import pickle as pkl  # noqa
 import time
+from typing import List
 
 import click
 import openai
 import pandas as pd
-import pickle as pkl
 import torch
 from tqdm import tqdm
 
@@ -21,7 +19,11 @@ from sentencefmricomparison.constants import (
 
 
 @click.command()
-@click.option("--column_names", multiple=True, default=["center_sents", "paragraphs", "permuted_sents"])
+@click.option(
+    "--column_names",
+    multiple=True,
+    default=["center_sents", "paragraphs", "permuted_sents"],
+)
 @click.option("--pereira_input_file", default=PEREIRA_PERMUTED_SENTENCES_PATH, type=str)
 @click.option("--openai_api_key", default=OPENAI_API_KEY, type=str)
 @click.option("--openai_model", default=OPENAI_DEFAULT_MODEL, type=str)
@@ -57,12 +59,16 @@ def generate_gpt3_embeddings(
     # The resulting embeds dictionary has the following structure: {sentence: embedding vector}
     embeds = {}
     for col in column_names:
-        for _, row in tqdm(pereira_paragraphs.iterrows(), desc=f"Generating embeddings for {col}"):
+        for _, row in tqdm(
+            pereira_paragraphs.iterrows(), desc=f"Generating embeddings for {col}"
+        ):
             # Sleep for 1 second to avoid hitting the OpenAI API rate limit
             time.sleep(1)
             # Generate the embedding for the current input by calling the OpenAI API
             embeds[row[col]] = torch.tensor(
-                openai.Embedding.create(input=[row[col]], model=openai_model)["data"][0]["embedding"]
+                openai.Embedding.create(input=[row[col]], model=openai_model)["data"][
+                    0
+                ]["embedding"]
             )
 
     # Save the embeddings to the output directory
@@ -72,9 +78,7 @@ def generate_gpt3_embeddings(
 
 @click.group()
 def cli() -> None:
-    """
-    Generate embeddings for GPT-3 with OpenAI's API.
-    """
+    """Generate embeddings for GPT-3 with OpenAI's API."""
 
 
 if __name__ == "__main__":

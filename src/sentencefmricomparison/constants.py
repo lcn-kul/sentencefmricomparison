@@ -28,7 +28,9 @@ PEREIRA_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "pereira")
 PEREIRA_SENTENCE_DIR = os.path.join(PEREIRA_INPUT_DIR, "sentences")
 PEREIRA_EXAMPLE_FILE = os.path.join(PEREIRA_RAW_DIR, "P01/data_384sentences.mat")
 PEREIRA_PREPROCESSED_PATH = os.path.join(PEREIRA_INPUT_DIR, "pereira_preprocessed.csv")
-PEREIRA_PERMUTED_SENTENCES_PATH = os.path.join(PEREIRA_INPUT_DIR, "pereira_permuted_passages.csv")
+PEREIRA_PERMUTED_SENTENCES_PATH = os.path.join(
+    PEREIRA_INPUT_DIR, "pereira_permuted_passages.csv"
+)
 # Dirs for brain network specific NIfTI files
 NETWORK_NIFTI_DIR = os.path.join(INPUT_DIR, "networks")
 # Use dotenv to properly load the device-dependent mlflow tracking URI
@@ -51,7 +53,7 @@ OPENAI_DEFAULT_MODEL = "text-embedding-ada-002"
 GPT3_EMBEDS_PATH = os.path.join(PEREIRA_OUTPUT_DIR, "gpt3_embeds.pkl")
 
 # Sent-eval benchmark constants
-PATH_TO_SENTEVAL = os.getenv("PATH_TO_SENTEVAL") or './SentEval'
+PATH_TO_SENTEVAL = os.getenv("PATH_TO_SENTEVAL") or "./SentEval"
 PATH_TO_SENTEVAL_DATA = os.path.join(PATH_TO_SENTEVAL, "data")
 SENTEVAL_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "senteval")
 
