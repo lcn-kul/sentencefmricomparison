@@ -2,7 +2,7 @@
 
 This repository contains the code for our paper accepted for ECAI 2023:
 > H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vandenberghe, and M.-F. Moens, “Investigating Neural Fit Approaches 
-> for Sentence Embedding Model Paradigms,” To appear in Proceedings of the 24th European Conference on Artificial 
+> for Sentence Embedding Model Paradigms,” To appear in Proceedings of the 26th European Conference on Artificial 
 > Intelligence, Kraków, Poland: IOS Press, Oct. 2023.
 
 ## 💪 Getting Started
@@ -72,7 +72,7 @@ The code in this package is licensed under the MIT License.
 ### 📖 Citation
 
 H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vandenberghe, and M.-F. Moens, “Investigating Neural Fit Approaches for 
-Sentence Embedding Model Paradigms,” To appear in Proceedings of the 24th European Conference on Artificial 
+Sentence Embedding Model Paradigms,” To appear in Proceedings of the 26th European Conference on Artificial 
 Intelligence, Kraków, Poland: IOS Press, Oct. 2023.
 
 ### 💰 Funding
