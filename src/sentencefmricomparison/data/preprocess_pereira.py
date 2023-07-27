@@ -123,6 +123,7 @@ def get_subject_data(
                     for i in range(0, len(data_pic["keySentences"]), 4)
                 ]
             )
+            fmri["topic_indices"] = np.array([i[0] for i in data_pic["labelsPassageCategory"]])
         else:
             fmri["sentences"] = np.array(
                 [
@@ -226,6 +227,7 @@ def convert_to_hf_dataset(
         mri_file_names = [f for f in mri_file_names if "passage" not in f]
 
     # Add the permuted sentences to the dataset as well
+    permuted_file = None
     if passage_wise_processing:
         permuted_file = pd.read_csv(
             os.path.join(processed_mri_dir, "pereira_permuted_passages.csv")

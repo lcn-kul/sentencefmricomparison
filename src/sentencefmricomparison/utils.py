@@ -2,13 +2,16 @@
 
 from dataclasses import make_dataclass
 from itertools import combinations, permutations, product
-from typing import Iterable, List, Optional, Union
+from typing import Callable, Iterable, List, Optional, Union
 
 import numpy as np
 import torch
 from scipy._lib._util import check_random_state  # noqa
+from scipy.spatial.distance import cosine
 from scipy.special import comb, factorial
 from scipy.stats import kendalltau, pearsonr, spearmanr
+from sklearn.base import BaseEstimator, clone
+from sklearn.model_selection import KFold
 from torchmetrics.functional.pairwise import (
     pairwise_cosine_similarity,
     pairwise_euclidean_distance,
@@ -566,3 +569,138 @@ def permutation_test(
     p_values = np.clip(p_values, 0, 1)
 
     return PermutationTestResult(observed, p_values, null_distribution)
+
+
+def cross_val_score_with_topic_ids(
+    estimator,
+    X, # noqa
+    y,
+    topic_ids: torch.Tensor = None,
+    cv: int = 5,
+    scoring: Callable = None,
+    scoring_variation: str = None,
+):
+    """Perform cross-validation with an additional feature 'topic_ids'.
+
+    :param estimator: Estimator object (e.g., a Ridge regression)
+    :type estimator: BaseEstimator
+    :param X: Sentence embeddings used as a basis to predict MRI vectors with the estimator
+    :type X: torch.Tensor
+    :param y: True MRI vectors
+    :type y: torch.Tensor
+    :param topic_ids: Topic IDs for each paragraph, defaults to None
+    :type topic_ids: np.ndarray
+    :param cv: Number of cross-validation folds, defaults to 5
+    :type cv: int, optional
+    :param scoring: Scoring function, defaults to None
+    :type scoring: Callable, optional
+    :param scoring_variation: Variation of the scoring function, defaults to None
+    :type scoring_variation: str, optional
+    :return: Cross-validation scores
+    :rtype: np.ndarray
+    """
+    kf = KFold(n_splits=cv, shuffle=False)
+
+    scores = []
+
+    for train_index, test_index in kf.split(X):
+        X_train, X_test = X[train_index], X[test_index]  # noqa
+        y_train, y_test = y[train_index], y[test_index]
+        topic_ids_test = topic_ids[test_index]
+
+        estimator_clone = clone(estimator)
+        estimator_clone.fit(X_train, y_train)  # noqa
+
+        if callable(scoring):
+            score = scoring(
+                estimator_clone,
+                X_test,
+                y_test,
+                topic_ids=topic_ids_test,
+                scoring_variation=scoring_variation,
+            )
+        else:
+            score = estimator_clone.score(X_test, y_test)  # noqa
+
+        scores.append(score)
+
+    return np.array(scores)
+
+
+def pairwise_accuracy(
+    estimator: BaseEstimator = None,
+    X: torch.Tensor = None,  # noqa
+    y: torch.Tensor = None,
+    topic_ids: torch.Tensor = None,
+    scoring_variation: str = None,
+) -> float:
+    """Calculate the average pairwise accuracy of all pairs of true and predicted vectors.
+
+    Based on the pairwise accuracy as defined in Oota et al. 2022, Sun et al. 2021, Pereira et al. 2018.
+
+    :param estimator: Estimator object (e.g., a Ridge regression)
+    :type estimator: BaseEstimator
+    :param X: Sentence embeddings used as a basis to predict MRI vectors with the estimator
+    :type X: torch.Tensor
+    :param y: True MRI vectors
+    :type y: torch.Tensor
+    :param topic_ids: Topic IDs for each paragraph
+    :type topic_ids: torch.Tensor
+    :param scoring_variation: Variation of the scoring function, defaults to None
+    :type scoring_variation: str, optional
+    :return: Average pairwise accuracy from all possible sentence pairs
+    :rtype: float
+    """
+    pred = estimator.predict(X)  # noqa
+
+    if scoring_variation == "same-topic":
+        # Calculate pairwise accuracy for same-topic sentences
+        res = [
+            cosine(pred[i], y[i]) + cosine(pred[j], y[j]) < cosine(pred[i], y[j]) + cosine(pred[j], y[i])
+            for i in range(len(X))
+            for j in range(i + 1, len(X)) if topic_ids[i] == topic_ids[j]
+        ]
+    elif scoring_variation == "different-topic":
+        # Calculate pairwise accuracy for different-topic sentences
+        res = [
+            cosine(pred[i], y[i]) + cosine(pred[j], y[j]) < cosine(pred[i], y[j]) + cosine(pred[j], y[i])
+            for i in range(len(X))
+            for j in range(i + 1, len(X)) if topic_ids[i] != topic_ids[j]
+        ]
+    else:
+        # See for all possible sentence pairings: Is the distance between the correct matches of predicted and X
+        # sentences smaller than the distance between pairings of X and predicted vectors from different sentences?
+        res = [
+            cosine(pred[i], y[i]) + cosine(pred[j], y[j]) < cosine(pred[i], y[j]) + cosine(pred[j], y[i])
+            for i in range(len(X))
+            for j in range(i + 1, len(X))
+        ]
+
+    # Return the fraction of instances for which the condition holds versus all possible pairs
+    return sum(res) / len(res)
+
+
+def pearson_scoring(
+    estimator: BaseEstimator = None,
+    X: torch.Tensor = None,  # noqa
+    y: torch.Tensor = None,
+) -> float:
+    """Calculate the average pearson correlation for the given set of true and predicted MRI vectors.
+
+    :param estimator: Estimator object (e.g., a Ridge regression)
+    :type estimator: BaseEstimator
+    :param X: Sentence embeddings used as a basis to predict MRI vectors with the estimator
+    :type X: torch.Tensor
+    :param y: True MRI vectors
+    :type y: torch.Tensor
+    :return: Average pearson correlation from all pairs of predicted and true MRI vectors
+    :rtype: float
+    """
+    pred = estimator.predict(X)  # noqa
+
+    # See for all possible sentence pairings: Is the distance between the correct matches of predicted and X
+    # sentences smaller than the distance between pairings of X and predicted vectors from different sentences?
+    res = [pearsonr(t, p).statistic for t, p in zip(y, pred)]
+
+    # Return the fraction of instances for which the condition holds versus all possible pairs
+    return np.mean(res)  # noqa

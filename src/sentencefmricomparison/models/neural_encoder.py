@@ -11,11 +11,7 @@ import optuna
 import pandas as pd
 import torch
 from datasets import load_dataset
-from scipy.spatial.distance import cosine
-from scipy.stats import pearsonr
-from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.model_selection import cross_val_score
 from tqdm import tqdm
 
 from sentencefmricomparison.constants import (
@@ -23,69 +19,12 @@ from sentencefmricomparison.constants import (
     SENT_EMBED_MODEL_LIST_EN,
 )
 from sentencefmricomparison.models.sentence_embedding_base import SentenceEmbeddingModel
+from sentencefmricomparison.utils import cross_val_score_with_topic_ids, pairwise_accuracy, pearson_scoring
 
 # Initialize logger
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def pairwise_accuracy(
-    estimator: BaseEstimator = None,
-    X: torch.Tensor = None,  # noqa
-    y: torch.Tensor = None,
-) -> float:
-    """Calculate the average pairwise accuracy of all pairs of true and predicted vectors.
-
-    Based on the pairwise accuracy as defined in Oota et al. 2022, Sun et al. 2021, Pereira et al. 2018.
-
-    :param estimator: Estimator object (e.g., a Ridge regression)
-    :type estimator: BaseEstimator
-    :param X: Sentence embeddings used as a basis to predict MRI vectors with the estimator
-    :type X: torch.Tensor
-    :param y: True MRI vectors
-    :type y: torch.Tensor
-    :return: Average pairwise accuracy from all possible sentence pairs
-    :rtype: float
-    """
-    pred = estimator.predict(X)
-
-    # See for all possible sentence pairings: Is the distance between the correct matches of predicted and X
-    # sentences smaller than the distance between pairings of X and predicted vectors from different sentences?
-    res = [
-        cosine(pred[i], y[i]) + cosine(pred[j], y[j]) < cosine(pred[i], y[j]) + cosine(pred[j], y[i])
-        for i in range(len(X))
-        for j in range(i + 1, len(X))
-    ]
-
-    # Return the fraction of instances for which the condition holds versus all possible pairs
-    return sum(res) / len(res)
-
-
-def pearson_scoring(
-    estimator: BaseEstimator = None,
-    X: torch.Tensor = None,  # noqa
-    y: torch.Tensor = None,
-) -> float:
-    """Calculate the average pearson correlation for the given set of true and predicted MRI vectors.
-
-    :param estimator: Estimator object (e.g., a Ridge regression)
-    :type estimator: BaseEstimator
-    :param X: Sentence embeddings used as a basis to predict MRI vectors with the estimator
-    :type X: torch.Tensor
-    :param y: True MRI vectors
-    :type y: torch.Tensor
-    :return: Average pearson correlation from all pairs of predicted and true MRI vectors
-    :rtype: float
-    """
-    pred = estimator.predict(X)
-
-    # See for all possible sentence pairings: Is the distance between the correct matches of predicted and X
-    # sentences smaller than the distance between pairings of X and predicted vectors from different sentences?
-    res = [pearsonr(t, p).statistic for t, p in zip(y, pred)]
-
-    # Return the fraction of instances for which the condition holds versus all possible pairs
-    return np.mean(res)
 
 
 def calculate_brain_scores_cv(
@@ -101,6 +40,7 @@ def calculate_brain_scores_cv(
     mapping_params: Union[Dict[str, Union[str, int, float]], None] = None,  # noqa
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
+    scoring_variation: str = None,
     write_output: bool = True,
     output_dir: str = PEREIRA_OUTPUT_DIR,
 ) -> Union[pd.DataFrame, float]:
@@ -134,6 +74,9 @@ def calculate_brain_scores_cv(
     :param scoring: Scoring function used to evaluate the performance of the neural encoding approach, defaults to
         "pairwise_accuracy"
     :type scoring: str
+    :param scoring_variation: Variation of the scoring function, e.g., "same-topic" or "different-topic" for
+        "pairwise_accuracy", defaults to None
+    :type scoring_variation: str
     :param write_output: Whether to write the output to a file, defaults to True
     :type write_output: bool
     :param output_dir: Output directory to save the brain scores to
@@ -203,12 +146,14 @@ def calculate_brain_scores_cv(
                 for roi_name, roi_features in brain_rois.items():
                     # Average across cross-validated results
                     brain_score = np.mean(
-                        cross_val_score(
+                        cross_val_score_with_topic_ids(
                             mapping_model,
                             sents_encoded.to("cpu").numpy(),
                             roi_features.to("cpu").numpy(),
+                            topic_ids=torch.tensor(dataset["train"][i]["topic_indices"]),
                             cv=cv,
                             scoring=scoring_func or scoring,
+                            scoring_variation=scoring_variation,
                         )
                     )
                     roi_results[roi_name] = [brain_score]
@@ -226,11 +171,14 @@ def calculate_brain_scores_cv(
             else:
                 brain_voxels = torch.tensor(subj["all"])
                 brain_score = np.mean(
-                    cross_val_score(
+                    cross_val_score_with_topic_ids(
                         mapping_model,
                         sents_encoded.to("cpu").numpy(),
                         brain_voxels.to("cpu").numpy(),
+                        topic_ids=torch.tensor(dataset["train"][i]["topic_indices"]),
+                        cv=cv,
                         scoring=scoring_func or scoring,
+                        scoring_variation=scoring_variation,
                     )
                 )
                 subj_results.append(pd.DataFrame({"all": [brain_score]}))
@@ -247,6 +195,8 @@ def calculate_brain_scores_cv(
         results["mean"] = results.mean(axis=1)
 
     # 7. Save the averaged results
+    if scoring_variation:
+        scoring = f"{scoring}_{scoring_variation}"
     if write_output:
         if only_middle:
             output_file = f"pereira_neural_enc_{dataset_hf_name.split('_')[-1]}_{scoring}_{mapping}_middle.csv"
@@ -276,6 +226,7 @@ def calculate_brain_scores_cv(
 @click.option("--mapping", type=str, default="ridge")
 @click.option("--cv", type=int, default=5)
 @click.option("--scoring", type=str, default="pairwise_accuracy")
+@click.option("--scoring-variation", type=str, default=None)
 @click.option("--output-dir", type=str, default=PEREIRA_OUTPUT_DIR)
 def calculate_brain_scores_cv_wrapper(
     dataset_hf_name: str = "helena-balabin/pereira_fMRI_passages",
@@ -288,6 +239,7 @@ def calculate_brain_scores_cv_wrapper(
     mapping: str = "ridge",
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
+    scoring_variation: str = None,
     output_dir: str = PEREIRA_OUTPUT_DIR,
 ):
     """Use calculate_brain_scores_cv (wrapper function).
@@ -317,6 +269,8 @@ def calculate_brain_scores_cv_wrapper(
     :param scoring: Scoring function used to evaluate the performance of the neural encoding approach, defaults to
         "pairwise_accuracy"
     :type scoring: str
+    :param scoring_variation: Optional variation of the scoring function, defaults to None
+    :type scoring_variation: str
     :param output_dir: Output directory to save the brain scores to
     :type output_dir: str
     """
@@ -331,6 +285,7 @@ def calculate_brain_scores_cv_wrapper(
         region_based=region_based,
         cv=cv,
         scoring=scoring,
+        scoring_variation=scoring_variation,
         write_output=True,
         output_dir=output_dir,
     )
