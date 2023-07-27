@@ -577,8 +577,8 @@ def cross_val_score_with_topic_ids(
     y,
     topic_ids: torch.Tensor = None,
     cv: int = 5,
-    scoring: Callable = None,
-    scoring_variation: str = None,
+    scoring: Callable = None,  # type: ignore
+    scoring_variation: str = None,  # type: ignore
 ):
     """Perform cross-validation with an additional feature 'topic_ids'.
 
@@ -591,11 +591,11 @@ def cross_val_score_with_topic_ids(
     :param topic_ids: Topic IDs for each paragraph, defaults to None
     :type topic_ids: np.ndarray
     :param cv: Number of cross-validation folds, defaults to 5
-    :type cv: int, optional
+    :type cv: int
     :param scoring: Scoring function, defaults to None
-    :type scoring: Callable, optional
+    :type scoring: Callable
     :param scoring_variation: Variation of the scoring function, defaults to None
-    :type scoring_variation: str, optional
+    :type scoring_variation: str
     :return: Cross-validation scores
     :rtype: np.ndarray
     """
@@ -632,7 +632,7 @@ def pairwise_accuracy(
     X: torch.Tensor = None,  # noqa
     y: torch.Tensor = None,
     topic_ids: torch.Tensor = None,
-    scoring_variation: str = None,
+    scoring_variation: str = None,  # type: ignore
 ) -> float:
     """Calculate the average pairwise accuracy of all pairs of true and predicted vectors.
 
@@ -647,7 +647,7 @@ def pairwise_accuracy(
     :param topic_ids: Topic IDs for each paragraph
     :type topic_ids: torch.Tensor
     :param scoring_variation: Variation of the scoring function, defaults to None
-    :type scoring_variation: str, optional
+    :type scoring_variation: str
     :return: Average pairwise accuracy from all possible sentence pairs
     :rtype: float
     """

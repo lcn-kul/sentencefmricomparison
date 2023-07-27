@@ -40,7 +40,7 @@ def calculate_brain_scores_cv(
     mapping_params: Union[Dict[str, Union[str, int, float]], None] = None,  # noqa
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
-    scoring_variation: str = None,
+    scoring_variation: str = None,  # type: ignore
     write_output: bool = True,
     output_dir: str = PEREIRA_OUTPUT_DIR,
 ) -> Union[pd.DataFrame, float]:
@@ -120,7 +120,7 @@ def calculate_brain_scores_cv(
     if "accuracy" in scoring or "2v2" in scoring:
         scoring_func = pairwise_accuracy
     if "pearson" in scoring:
-        scoring_func = pearson_scoring
+        scoring_func = pearson_scoring  # type: ignore
     # 5. Initialize the results
     res = []
 
@@ -152,7 +152,7 @@ def calculate_brain_scores_cv(
                             roi_features.to("cpu").numpy(),
                             topic_ids=torch.tensor(dataset["train"][i]["topic_indices"]),
                             cv=cv,
-                            scoring=scoring_func or scoring,
+                            scoring=scoring_func or scoring,  # type: ignore
                             scoring_variation=scoring_variation,
                         )
                     )
@@ -177,7 +177,7 @@ def calculate_brain_scores_cv(
                         brain_voxels.to("cpu").numpy(),
                         topic_ids=torch.tensor(dataset["train"][i]["topic_indices"]),
                         cv=cv,
-                        scoring=scoring_func or scoring,
+                        scoring=scoring_func or scoring,  # type: ignore
                         scoring_variation=scoring_variation,
                     )
                 )
@@ -239,7 +239,7 @@ def calculate_brain_scores_cv_wrapper(
     mapping: str = "ridge",
     cv: int = 5,
     scoring: str = "pairwise_accuracy",
-    scoring_variation: str = None,
+    scoring_variation: str = None,  # type: ignore
     output_dir: str = PEREIRA_OUTPUT_DIR,
 ):
     """Use calculate_brain_scores_cv (wrapper function).

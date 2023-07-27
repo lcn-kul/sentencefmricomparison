@@ -239,7 +239,7 @@ def convert_to_hf_dataset(
         with open(file, "rb") as f:
             mri_data_dict = pickle.load(f)  # noqa
             if passage_wise_processing:
-                mri_data_dict["permuted_paragraphs"] = permuted_file[
+                mri_data_dict["permuted_paragraphs"] = permuted_file[  # type: ignore
                     "permuted_sents"
                 ].tolist()
             mri_files.append(mri_data_dict)
