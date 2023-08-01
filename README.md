@@ -54,6 +54,10 @@ previously preprocessed data, and you might need to switch to the right director
   ```
 Add the `--help` flag to see the available options for each command.
 
+### Appendices
+
+All file containing appendices mentioned in the main text of the paper can be found in the `appendices` folder.
+
 ## 🚀 Installation
 
 The most recent code can be installed directly from GitHub using:
