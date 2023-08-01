@@ -56,7 +56,7 @@ Add the `--help` flag to see the available options for each command.
 
 ### Appendices
 
-All file containing appendices mentioned in the main text of the paper can be found in the `appendices` folder.
+All file containing all appendices mentioned in the main text of the paper can be found in the `appendices` folder.
 
 ## 🚀 Installation
 
