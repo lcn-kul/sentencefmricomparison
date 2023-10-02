@@ -1,7 +1,7 @@
 # Investigating Neural Fit Approaches for Sentence Embedding Model Paradigms
 
 This repository contains the code for our paper accepted for ECAI 2023:
-> [1] H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vanderberghe, and M.-F. Moens, “Investigating Neural Fit Approaches 
+> H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vanderberghe, and M.-F. Moens, “Investigating Neural Fit Approaches 
 > for Sentence Embedding Model Paradigms,” in Proceedings of the 26th European Conference on Artificial Intelligence, 
 > Kraków, Poland: IOS Press, Oct. 2023, pp. 165–173. doi: 10.3233/FAIA230267.
 
@@ -76,9 +76,9 @@ The code in this package is licensed under the MIT License.
 
 ### 📖 Citation
 
-H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vandenberghe, and M.-F. Moens, “Investigating Neural Fit Approaches for 
-Sentence Embedding Model Paradigms,” To appear in Proceedings of the 26th European Conference on Artificial 
-Intelligence, Kraków, Poland: IOS Press, Oct. 2023.
+H. Balabin, A. G. Liuzzi, J. Sun, P. Dupont, R. Vanderberghe, and M.-F. Moens, “Investigating Neural Fit Approaches for Sentence Embedding Model Paradigms,” 
+in Proceedings of the 26th European Conference on Artificial Intelligence, Kraków, Poland: IOS Press, Oct. 2023, pp. 165–173. doi: 10.3233/FAIA230267.
+
 
 ### 💰 Funding
 
