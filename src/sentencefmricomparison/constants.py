@@ -31,6 +31,9 @@ PEREIRA_PREPROCESSED_PATH = os.path.join(PEREIRA_INPUT_DIR, "pereira_preprocesse
 PEREIRA_PERMUTED_SENTENCES_PATH = os.path.join(
     PEREIRA_INPUT_DIR, "pereira_permuted_passages.csv"
 )
+# Dirs for text to image output
+TEXT_TO_IMAGE_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "text_to_image")
+
 # Dirs for brain network specific NIfTI files
 NETWORK_NIFTI_DIR = os.path.join(INPUT_DIR, "networks")
 # Use dotenv to properly load the device-dependent mlflow tracking URI
@@ -70,6 +73,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(RAW_DIR, exist_ok=True)
 os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(TEXT_TO_IMAGE_OUTPUT_DIR, exist_ok=True)
 os.makedirs(PEREIRA_RAW_DIR, exist_ok=True)
 os.makedirs(PEREIRA_INPUT_DIR, exist_ok=True)
 os.makedirs(PEREIRA_OUTPUT_DIR, exist_ok=True)
